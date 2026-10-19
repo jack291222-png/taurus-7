@@ -1,0 +1,55 @@
+name: Safari link extension checks
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'extension/OpenSpotify/**'
+      - 'scripts/build-safari-extension.sh'
+      - 'scripts/safari-extension-plist.py'
+      - 'scripts/check-safari-ipa.py'
+      - '.github/workflows/build-ipa.yml'
+      - 'scripts/pipeline.sh'
+      - 'tests/open-spotify/**'
+      - 'Makefile'
+      - '.github/workflows/test-safari.yml'
+  pull_request:
+    paths:
+      - 'extension/OpenSpotify/**'
+      - 'scripts/build-safari-extension.sh'
+      - 'scripts/safari-extension-plist.py'
+      - 'scripts/check-safari-ipa.py'
+      - '.github/workflows/build-ipa.yml'
+      - 'scripts/pipeline.sh'
+      - 'tests/open-spotify/**'
+      - 'Makefile'
+      - '.github/workflows/test-safari.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  safari:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Routing, lifecycle and packaging tests
+        run: make test-safari
+      - name: Compile and verify the native extension without a Spotify IPA
+        run: |
+          mkdir -p out
+          python3 - <<'PY'
+          import plistlib
+          from pathlib import Path
+          host = {'CFBundleIdentifier': 'dev.taurus.fixture', 'CFBundleShortVersionString': '1.0', 'CFBundleVersion': '1'}
+          Path('out/safari-host.plist').write_bytes(plistlib.dumps(host))
+          PY
+          bash scripts/build-safari-extension.sh out/safari-host.plist out/safari-ci
+          codesign --verify --strict out/safari-ci/TaurusOpenSpotify.appex
+          plutil -lint out/safari-ci/TaurusOpenSpotify.appex/Info.plist
