@@ -223,3 +223,27 @@ line or short list).
   Lyrics row), which look (Redesigned?), which track/page, and `make log`
   around the tap. Nothing in the NSNull fix obviously touches that button; do
   not assume it was ours.
+
+## Custom-tab links on 9.1.90+ (the tab-nav round)
+
+- The old `navigateToURI:options:interactionID:` entry became
+  `navigateToURI:options:reason:completionHandler:resultHandler:` in 9.1.90, and
+  its `reason:` is a Swift enum no ObjC caller can build — nil/zero segfaults in
+  `swift_getEnumCaseMultiPayload`. Never call it from the tweak.
+- The system deep-link round trip (`openURL:`) opens once with an
+  "Open in Spotify" banner, then stops. Rejected as the primary path.
+- The working door: the hooked `SPTLinkDispatcherImplementation` exposes
+  `uriSchemeDispatcher`, whose plain ObjC `handleURI:context:` answers BOOL and
+  routes exactly like Spotify's own in-app links. Verified in the decrypted
+  binary: property encoding `T@"SPTURISchemeDispatcher",R,N,V_uriSchemeDispatcher`.
+- `context:` may not be nil: the dispatcher's Swift guts die in
+  `swift_getObjectType` on 0x0 (two device crash reports). The mod hooks
+  `SPTURISchemeDispatcher` and captures the context Spotify itself passes; until
+  a context exists, the deep-link round trip stays as fallback and doubles as
+  the capture seed (one banner tap per cold launch, then always in process).
+- Spinoff: the redesign glass bar mirrors Spotify's label whites for
+  selection; a tab of the mod's never gets painted, so
+  `SGRTabBarMarkCustomSelected` keeps it lit until a stock tab is tapped.
+- `logDispatcherMethods` canary (at launch, `[spotifyglass]` in the log) dumps
+  the dispatcher's method list — the next upstream rename is a log read.
+- All merged as upstream MR !8 (`fix/link-dispatch-selector`, two commits).
