@@ -153,6 +153,11 @@ if [ -n "${EXT_DIR:-}" ]; then
   python3 "$ROOT/scripts/merge-appintents.py" "$OUT" "$APP_DIR" "$EXT_DIR/app/Metadata.appintents"
 fi
 
+# The built tweak's dylib kept beside the IPA under the same name, for scans and diffs without unzipping.
+echo "==> keeping the tweak dylib beside the IPA"
+DYLIB_PATH="$(unzip -Z1 "$OUT" | grep 'Payload/[^[:space:]]*/Frameworks/spotifyglass\.dylib$' | head -1 || true)"
+if [ -n "$DYLIB_PATH" ]; then unzip -p "$OUT" "$DYLIB_PATH" > "${OUT%.ipa}.dylib"; else echo "    no spotifyglass.dylib in the IPA"; fi
+
 echo "==> done: $OUT"
 [ "$INSTALL" = 1 ] && exec bash "$ROOT/scripts/install.sh" "$OUT"
 exit 0
