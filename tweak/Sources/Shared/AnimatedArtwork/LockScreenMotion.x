@@ -1,5 +1,6 @@
-// The lock screen's artwork moves: the track's Canvas, else Apple Music's animated album cover, and with
-// Every song chosen, failing both, the cover over a moving blur of itself (SGFluidClip.h). iOS 26 takes a
+// The lock screen's artwork moves: the track's Canvas, else Apple Music's animated album cover. Failing
+// both, Every song falls back to the cover over a moving blur of itself (SGFluidClip.h) and Moving artwork
+// to Fill's clip (SGFillClip.h). iOS 26 takes a
 // local video through MPMediaItemAnimatedArtwork under one of two now playing keys, 1:1 or 3:4, of those
 // the system lists. It rides on Spotify's now playing info as an extra (Shared/Player/NowPlayingExtras.h).
 //
@@ -235,6 +236,7 @@ void SGLockMotionShowPlain(BOOL plain) {
                 SGLockMotionShowPlain(sg_plain);
             } else if (file) show(file);
             else if (sg_choice == SGLockArtworkEverySong) showCover(sg_picture);
+            else if (sg_choice == SGLockArtworkMotion) showFill(sg_picture);
         }];
         // Heard on the writing thread and handed to main without waiting: a main-queue observer makes every
         // background defaults write wait for main, which deadlocks launch while main waits on Spotify's CoreThread.

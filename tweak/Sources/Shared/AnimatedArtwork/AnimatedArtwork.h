@@ -17,7 +17,7 @@
 #define SGKeyLockScreenCoverArtworkScale @"spotifyglass.lockscreen.coverArtworkScale"
 typedef NS_ENUM(NSInteger, SGLockArtwork) {
     SGLockArtworkOff = 0,
-    SGLockArtworkMotion,   // the Canvas, else Apple Music's animated cover (LockScreenMotion.x)
+    SGLockArtworkMotion,   // the Canvas, else Apple Music's animated cover, else Fill (LockScreenMotion.x)
     SGLockArtworkLyrics,   // a clip per line of lyrics (Shared/LockScreenLyrics/LyricsArtwork.x)
     SGLockArtworkEverySong,   // Moving artwork, else the cover over a moving blur of it (LockScreenMotion.x)
     SGLockArtworkFill,   // a sharp cover fading into progressively blurred artwork
