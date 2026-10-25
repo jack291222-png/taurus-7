@@ -18,9 +18,9 @@
 static const CGFloat kRowHeight = 32, kGlyphSize = 13, kGlyphGap = 10;
 // Half the play button's height and half the footer glyphs': below this much room between them it does not fit.
 static const CGFloat kButtonsHalf = 24, kGlyphsHalf = 14;
-// The track's height at rest and held, how far it grows past each end, how far the glyphs move out and by how much they
-// scale (each clamped to the room the row has on that side). Music's own held numbers are 18, 7, 9 and 1.08.
-static const CGFloat kTrackRest = 7, kTrackHeld = 12, kStretch = 5, kGlyphShift = 6, kGlyphHeldScale = 1.02;
+// The track's height at rest and held, how far it grows past each end, how far the glyphs move out and by how much
+// they scale (each clamped to the room the row has on that side) — Music's own held numbers.
+static const CGFloat kTrackRest = 7, kTrackHeld = 18, kStretch = 7, kGlyphShift = 9, kGlyphHeldScale = 1.08;
 // White's opacity: the fill at rest and held, the empty part, the glyphs at rest (held they are full white).
 static const CGFloat kFillRest = 0.65, kFillHeld = 1, kEmpty = 0.24, kGlyphRest = 0.68;
 
