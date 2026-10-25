@@ -115,9 +115,67 @@ static void checkPreferencesSettle(void) {
     puts("PASS: defaults observers settle without writes, per-track fallback survives refreshes, and all styles/cycling/lyric exclusivity remain available");
 }
 
+static void checkOptionalLockScreenLyrics(void) {
+    NSUserDefaults *store = NSUserDefaults.standardUserDefaults;
+    [store removeObjectForKey:SGKeyLockScreenLyricsView];
+    require(SGLockScreenLyricsViewEnabled(), @"Existing Lyrics choices remain enabled until switched off");
+    SGSetEnabled(SGKeyLockScreenExclusiveLyrics, YES);
+    SGSetEnabled(SGKeyLockScreenLyrics, YES);
+    SGSetEnabled(SGKeyLockScreenStar, YES);
+    NSArray *saved = @[@"canvas", @"lyrics", @"fill", @"default"];
+    setViews(saved, SGLockArtworkMotion, NO);
+    SGLockScreenStarSelectView(@"lyrics");
+    require(!SGFlag(SGKeyLockScreenLyrics, NO), @"Selecting Lyrics still applies lyric exclusivity");
+
+    SGSetEnabled(SGKeyLockScreenLyricsView, NO);
+    SGLockScreenStarEnsureView();
+    SGLockScreenLyricsExclusivityChanged(YES);
+    require(SGLockScreenArtwork() == SGLockArtworkMotion, @"Switching lyrics off keeps an enabled artwork view");
+    require(SGFlag(SGKeyLockScreenLyrics, NO), @"Switching the full-screen view off restores artist-name lyrics");
+    require([SGLockScreenStarViewOrder() isEqual:saved], @"The lyrics switch must preserve the saved hierarchy");
+    require([SGLockScreenAvailableStarViews() isEqual:@[@"canvas", @"fill", @"default"]],
+            @"Disabled Lyrics is excluded from the available views");
+    SGLockScreenStarSelectView(@"lyrics");
+    require(SGLockScreenArtwork() == SGLockArtworkMotion, @"Direct selection cannot bypass the lyrics switch");
+    for (NSUInteger i = 0; i < 6; i++) {
+        SGLockScreenStarAdvanceView();
+        require(SGLockScreenArtwork() != SGLockArtworkLyrics, @"Star cycling must skip disabled Lyrics");
+    }
+    SGLockScreenStarSelectView(@"canvas");
+    require(SGLockScreenSkipUnavailableMotion() == SGLockArtworkFill,
+            @"Missing Canvas falls through to artwork instead of disabled Lyrics");
+    SGSetEnabled(SGKeyLockScreenCanvasLyrics, YES);
+    require(!SGLockScreenCanvasLyricsEnabled(), @"The switch also suppresses legacy lyrics over moving artwork");
+    SGSetEnabled(SGKeyLockScreenCanvasLyrics, NO);
+
+    NSArray *views = @[@"canvas", @"fill", @"colorful", @"default"];
+    NSArray *styles = @[@(SGLockArtworkMotion), @(SGLockArtworkFill), @(SGLockArtworkEverySong), @(SGLockArtworkOff)];
+    for (NSUInteger i = 0; i < views.count; i++) {
+        setViews(@[views[i]], SGLockArtworkLyrics, NO);
+        SGLockScreenStarEnsureView();
+        require(SGLockScreenArtwork() == [styles[i] integerValue], @"Every non-lyrics artwork style remains available");
+    }
+    setViews(@[@"lyrics"], SGLockArtworkLyrics, NO);
+    SGLockScreenStarEnsureView();
+    require(SGLockScreenArtwork() == SGLockArtworkOff, @"A Lyrics-only hierarchy falls back to iOS artwork while disabled");
+    require([SGLockScreenStarViewOrder() isEqual:@[@"lyrics"]], @"A Lyrics-only hierarchy is retained for re-enabling");
+    preferenceWrites = 0;
+    for (NSUInteger i = 0; i < 20; i++) SGLockScreenStarEnsureView();
+    require(preferenceWrites == 0, @"Disabled Lyrics must not reintroduce the defaults-write loop");
+
+    SGSetEnabled(SGKeyLockScreenLyricsView, YES);
+    SGLockScreenStarEnsureView();
+    require(SGLockScreenArtwork() == SGLockArtworkLyrics, @"Re-enabling restores the saved Lyrics-only choice");
+    setViews(saved, SGLockArtworkMotion, NO);
+    require([SGLockScreenAvailableStarViews() isEqual:saved], @"Re-enabling restores the full configured order");
+    require(SGLockScreenSkipUnavailableMotion() == SGLockArtworkLyrics, @"Lyrics can be used as fallback again when enabled");
+    puts("PASS: optional lock-screen lyrics, artwork-only fallback/cycling, saved hierarchy, artist-name lyrics and idempotent refreshes");
+}
+
 int main(void) {
     @autoreleasepool {
         NSUserDefaults *store = NSUserDefaults.standardUserDefaults;
+        [store removeObjectForKey:SGKeyLockScreenLyricsView];
         SGSetEnabled(SGKeyLockScreenStar, YES);
         SGSetEnabled(SGKeyLockScreenLyrics, NO);
         [store removeObjectForKey:@"spotifyglass.lockscreen.starViews.migrated"];
@@ -171,6 +229,7 @@ int main(void) {
         require(SGLockScreenArtwork() == SGLockArtworkFill, @"An empty cycle must leave manual artwork selection intact");
         puts("PASS: ordered track-local fallback, Canvas retry, non-Canvas priority, Lyrics fallback and style migration");
         checkPreferencesSettle();
+        checkOptionalLockScreenLyrics();
     }
     return 0;
 }

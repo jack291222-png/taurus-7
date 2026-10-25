@@ -24,3 +24,7 @@ showed the old star-view migration adding disabled styles and a missed lookup pe
 
 This tests selection and callback ordering. Real lock-screen video presentation still needs an iOS 26+
 phone with tracks that have Canvas available.
+
+The lock-screen lyrics switch is checked independently: disabled Lyrics is skipped during star
+cycling, direct selection and Canvas fallback, all artwork styles remain available, artist-name
+lyrics can still run, and the original hierarchy is retained when Lyrics is enabled again.

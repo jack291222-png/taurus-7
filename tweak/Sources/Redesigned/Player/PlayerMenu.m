@@ -71,7 +71,7 @@ static UIMenu *backgroundStyleMenu(void) {
 static UIMenu *lockScreenStyleMenu(void) {
     NSString *current = SGLockScreenCurrentStarView();
     NSMutableArray<UIMenuElement *> *choices = [NSMutableArray array];
-    for (NSString *view in SGLockScreenStarViewOrder()) {
+    for (NSString *view in SGLockScreenAvailableStarViews()) {
         UIAction *choice = [UIAction actionWithTitle:SGLockScreenStarViewName(view)
                                                image:nil
                                           identifier:nil

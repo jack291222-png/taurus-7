@@ -500,7 +500,7 @@ static SGRPlayerMenuItem *lockScreenStyleItem(SGRPlayerMenuTakeover *takeover) {
     NSString *current = SGLockScreenCurrentStarView() ?: @"default";
     item.subtitle = SGLockScreenStarViewName(current);
     NSMutableArray<SGRPlayerMenuItem *> *choices = [NSMutableArray array];
-    for (NSString *view in SGLockScreenStarViewOrder()) {
+    for (NSString *view in SGLockScreenAvailableStarViews()) {
         SGRPlayerMenuItem *choice = [SGRPlayerMenuItem itemWithTitle:SGLockScreenStarViewName(view) image:nil action:^{
             SGLockScreenStarSelectView(view);
             [weak.card setSubtitle:SGLockScreenStarViewName(view) forKey:@"spotifyglass.lockScreenStyle"];

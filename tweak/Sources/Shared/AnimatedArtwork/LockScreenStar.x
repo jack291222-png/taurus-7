@@ -13,7 +13,7 @@ static NSString *currentStarView(void) {
 }
 
 static BOOL starOn(void) {
-    return SGHidden(SGKeyLockScreenStar) && SGLockScreenStarViewOrder().count > 1;
+    return SGHidden(SGKeyLockScreenStar) && SGLockScreenAvailableStarViews().count > 1;
 }
 
 static MPRemoteCommandHandlerStatus tapped(void) {

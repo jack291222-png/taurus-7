@@ -372,6 +372,10 @@ be hidden without losing the hold-on-a-line meaning sheet), and the translation'
 include independent portrait and landscape auto-hide switches for the lyrics screen. Lock Screen: its controls and, under Artwork, the full-screen style selector and ordered style hierarchy:
 Canvas (the track's Canvas or the album's Apple Music animated cover), Lyrics over the blurred cover,
 Fill artwork, Colourful (Every Song's moving-cover treatment), and Default (iOS's full album artwork).
+Show lock-screen lyrics can exclude the full-screen Lyrics view and legacy artwork overlays without
+changing the saved hierarchy, in-app lyrics or the artist-name lyrics setting. It is on until switched
+off and applies immediately; while off, direct selection, star cycling and Canvas fallback use artwork
+instead. Turning it back on makes the saved Lyrics choice available again.
 The first enabled style is used when star cycling is off; the star can cycle through enabled styles.
 If Canvas has no usable animation, the next enabled style is used for that track only, and Canvas is
 checked again on the next track. The redesigned player's ⋯ menu also selects the active lock-screen style.

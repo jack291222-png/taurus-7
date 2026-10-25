@@ -83,6 +83,18 @@ NSArray<NSString *> *SGLockScreenStarViewOrder(void) {
     return order.count ? order : defaultStarViewOrder();
 }
 
+BOOL SGLockScreenLyricsViewEnabled(void) {
+    return SGEnabled(SGKeyLockScreenLyricsView);
+}
+
+NSArray<NSString *> *SGLockScreenAvailableStarViews(void) {
+    NSArray<NSString *> *order = SGLockScreenStarViewOrder();
+    if (SGLockScreenLyricsViewEnabled()) return order;
+    NSMutableArray<NSString *> *available = [order mutableCopy];
+    [available removeObject:kStarLyrics];
+    return available.count ? available : @[kStarDefault];
+}
+
 NSString *SGLockScreenCurrentStarView(void) {
     SGLockArtwork artwork = SGLockScreenArtwork();
     if (artwork == SGLockArtworkOff) return kStarDefault;
@@ -101,6 +113,8 @@ NSString *SGLockScreenStarViewName(NSString *view) {
 }
 
 void SGLockScreenStarSelectView(NSString *view) {
+    if ([view isEqualToString:kStarLyrics] && !SGLockScreenLyricsViewEnabled())
+        view = SGLockScreenAvailableStarViews().firstObject;
     SGLockArtwork artwork;
     if ([view isEqualToString:kStarDefault]) {
         artwork = SGLockArtworkOff;
@@ -119,7 +133,7 @@ void SGLockScreenStarSelectView(NSString *view) {
 }
 
 void SGLockScreenStarEnsureView(void) {
-    NSArray<NSString *> *order = SGLockScreenStarViewOrder();
+    NSArray<NSString *> *order = SGLockScreenAvailableStarViews();
     if (!order.count) return;
     NSString *current = SGLockScreenCurrentStarView();
     NSString *selected = SGHidden(SGKeyLockScreenStar) && current && [order containsObject:current]
@@ -128,7 +142,7 @@ void SGLockScreenStarEnsureView(void) {
 }
 
 void SGLockScreenStarAdvanceView(void) {
-    NSArray<NSString *> *order = SGLockScreenStarViewOrder();
+    NSArray<NSString *> *order = SGLockScreenAvailableStarViews();
     if (!order.count) return;
     NSString *current = SGLockScreenCurrentStarView();
     NSUInteger index = current ? [order indexOfObject:current] : NSNotFound;
@@ -138,7 +152,7 @@ void SGLockScreenStarAdvanceView(void) {
 }
 
 SGLockArtwork SGLockScreenSkipUnavailableMotion(void) {
-    NSArray<NSString *> *order = SGLockScreenStarViewOrder();
+    NSArray<NSString *> *order = SGLockScreenAvailableStarViews();
     NSString *current = SGLockScreenCurrentStarView();
     NSUInteger index = current ? [order indexOfObject:current] : NSNotFound;
     for (NSUInteger step = 1; step <= order.count; step++) {
@@ -157,7 +171,7 @@ SGLockArtwork SGLockScreenSkipUnavailableMotion(void) {
 }
 
 BOOL SGLockScreenCanvasLyricsEnabled(void) {
-    BOOL canvas = SGHidden(SGKeyLockScreenCanvasLyrics);
+    BOOL canvas = SGLockScreenLyricsViewEnabled() && SGHidden(SGKeyLockScreenCanvasLyrics);
     if (canvas && SGFlag(SGKeyLockScreenLyrics, NO) && SGEnabled(SGKeyLockScreenExclusiveLyrics)) {
         SGSetEnabled(kArtistLyricsWasEnabled, YES);
         SGSetEnabled(SGKeyLockScreenLyrics, NO);
@@ -176,8 +190,8 @@ void SGLockScreenCanvasLyricsSetEnabled(BOOL enabled) {
 
 void SGLockScreenLyricsExclusivityChanged(BOOL enabled) {
     SGLockArtwork artwork = (SGLockArtwork)SGInt(SGKeyFullScreenArtwork, SGLockArtworkOff);
-    BOOL lockLyrics = artwork == SGLockArtworkLyrics
-        || (SGHidden(SGKeyLockScreenCanvasLyrics) && SGLockArtworkHasMotion(artwork));
+    BOOL lockLyrics = SGLockScreenLyricsViewEnabled() && (artwork == SGLockArtworkLyrics
+        || (SGHidden(SGKeyLockScreenCanvasLyrics) && SGLockArtworkHasMotion(artwork)));
     if (enabled && lockLyrics && SGFlag(SGKeyLockScreenLyrics, NO)) {
         SGSetEnabled(kArtistLyricsWasEnabled, YES);
         SGSetEnabled(SGKeyLockScreenLyrics, NO);
@@ -189,7 +203,7 @@ void SGLockScreenLyricsExclusivityChanged(BOOL enabled) {
 
 void SGLockScreenArtistLyricsChanged(BOOL enabled) {
     if (enabled && SGEnabled(SGKeyLockScreenExclusiveLyrics)) {
-        for (NSString *view in SGLockScreenStarViewOrder()) {
+        for (NSString *view in SGLockScreenAvailableStarViews()) {
             if (![view isEqualToString:kStarLyrics]) {
                 SGLockScreenStarSelectView(view);
                 return;

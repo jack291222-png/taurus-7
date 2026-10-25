@@ -235,7 +235,7 @@ static void tick(void) {
         if (!lines) SGKaraokeRequestLyrics(trackID);
         SGLockArtwork artworkChoice = SGLockScreenEffectiveArtwork();
         BOOL overMotion = SGLockScreenCanvasLyricsEnabled() && SGLockArtworkHasMotion(artworkChoice);
-        BOOL lyricsOn = artworkChoice == SGLockArtworkLyrics || overMotion;
+        BOOL lyricsOn = SGLockScreenLyricsViewEnabled() && (artworkChoice == SGLockArtworkLyrics || overMotion);
         if (!lyricsOn) {
             clear();
             SGLockMotionShowPlain(NO);
@@ -320,7 +320,8 @@ static void setTicking(BOOL on) {
 // each time, so a change on the Lock screen page applies at once.
 - (void)playerStateDidChange:(SPTPlayerState *)state {
     SGLockArtwork choice = SGLockScreenEffectiveArtwork();
-    BOOL on = choice == SGLockArtworkLyrics || (SGLockScreenCanvasLyricsEnabled() && SGLockArtworkHasMotion(choice));
+    BOOL on = SGLockScreenLyricsViewEnabled()
+        && (choice == SGLockArtworkLyrics || (SGLockScreenCanvasLyricsEnabled() && SGLockArtworkHasMotion(choice)));
     setTicking(on && !state.isPaused);
     if (on) tick();
     else {
@@ -344,15 +345,19 @@ static void setTicking(BOOL on) {
         // Heard on the writing thread and handed to main without waiting (AGENTS.md).
         static SGLockArtwork choice;
         static BOOL canvasLyrics;
+        static BOOL lyricsView;
         choice = SGLockScreenEffectiveArtwork();
         canvasLyrics = SGLockScreenCanvasLyricsEnabled();
+        lyricsView = SGLockScreenLyricsViewEnabled();
         [NSNotificationCenter.defaultCenter addObserverForName:NSUserDefaultsDidChangeNotification object:nil queue:nil
                                                     usingBlock:^(NSNotification *note) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 BOOL enabled = SGLockScreenCanvasLyricsEnabled();
-                if (SGLockScreenEffectiveArtwork() == choice && enabled == canvasLyrics) return;
+                BOOL viewEnabled = SGLockScreenLyricsViewEnabled();
+                if (SGLockScreenEffectiveArtwork() == choice && enabled == canvasLyrics && viewEnabled == lyricsView) return;
                 choice = SGLockScreenEffectiveArtwork();
                 canvasLyrics = enabled;
+                lyricsView = viewEnabled;
                 SGLog(@"lock lyrics: artwork mode or lyrics overlay changed");
                 [observer playerStateDidChange:SGPlayerState()];
             });
@@ -362,7 +367,7 @@ static void setTicking(BOOL on) {
                                                     usingBlock:^(NSNotification *note) {
             [observer playerStateDidChange:SGPlayerState()];
         }];
-        BOOL lyricsOn = choice == SGLockArtworkLyrics || (canvasLyrics && SGLockArtworkHasMotion(choice));
+        BOOL lyricsOn = lyricsView && (choice == SGLockArtworkLyrics || (canvasLyrics && SGLockArtworkHasMotion(choice)));
         SGLog(@"lock lyrics: %@, the lock screen takes %@", lyricsOn ? @"on" : @"off",
               MPNowPlayingInfoCenter.supportedAnimatedArtworkKeys);
     }

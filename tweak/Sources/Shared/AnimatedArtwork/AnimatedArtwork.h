@@ -11,6 +11,7 @@
 #define SGKeyLockScreenMotion @"spotifyglass.lockscreen.motion"
 #define SGKeyLegacyLockScreenArtwork @"spotifyglass.lockscreen.animatedartwork"
 #define SGKeyLockScreenCanvasLyrics @"spotifyglass.lockscreen.canvasLyrics"
+#define SGKeyLockScreenLyricsView @"spotifyglass.lockscreen.lyricsView"
 #define SGKeyLockScreenStar @"spotifyglass.lockscreen.star"
 #define SGKeyLockScreenStarViews @"spotifyglass.lockscreen.starViews"
 #define SGKeyLockScreenExclusiveLyrics @"spotifyglass.lockscreen.exclusiveLyrics"
@@ -26,6 +27,9 @@ typedef NS_ENUM(NSInteger, SGLockArtwork) {
 // Off below iOS 26, which has no animated artwork on the lock screen.
 SGLockArtwork SGLockScreenArtwork(void);
 NSArray<NSString *> *SGLockScreenStarViewOrder(void);
+// The saved order with Lyrics skipped while Show lock-screen lyrics is off.
+NSArray<NSString *> *SGLockScreenAvailableStarViews(void);
+BOOL SGLockScreenLyricsViewEnabled(void);
 NSString *SGLockScreenCurrentStarView(void);
 NSString *SGLockScreenStarViewName(NSString *view);
 void SGLockScreenStarSelectView(NSString *view);

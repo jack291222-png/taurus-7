@@ -231,7 +231,7 @@ void SGLockMotionShowPlain(BOOL plain) {
         sg_configuredChoice = sg_choice;
         sg_queue = dispatch_queue_create("spotifyglass.lockscreen.motion", DISPATCH_QUEUE_SERIAL);
         __block BOOL canvasLyrics = SGLockScreenCanvasLyricsEnabled();
-        __block NSArray<NSString *> *starViews = SGLockScreenStarViewOrder();
+        __block NSArray<NSString *> *starViews = SGLockScreenAvailableStarViews();
         __block BOOL starEnabled = SGHidden(SGKeyLockScreenStar);
         __block CGFloat coverScale = SGLockScreenCoverArtworkScale();
         __block NSUInteger coverScaleRequest = 0;
@@ -276,7 +276,7 @@ void SGLockMotionShowPlain(BOOL plain) {
                 SGLockScreenStarEnsureView();
                 SGLockArtwork choice = SGLockScreenArtwork();
                 BOOL lyrics = SGLockScreenCanvasLyricsEnabled();
-                NSArray<NSString *> *newStarViews = SGLockScreenStarViewOrder();
+                NSArray<NSString *> *newStarViews = SGLockScreenAvailableStarViews();
                 BOOL newStarEnabled = SGHidden(SGKeyLockScreenStar);
                 CGFloat newCoverScale = SGLockScreenCoverArtworkScale();
                 BOOL modeChanged = choice != sg_configuredChoice || lyrics != canvasLyrics
