@@ -299,7 +299,7 @@ Redesigned:
 
 App:
 
-    ModSettings.x  the root page and the rows that open it from Spotify's settings and the side drawer
+    ModSettings.x  the root page and the row that opens it from Spotify's settings
     Pages.m        the Appearance card with Redesigned UI, the Player and Lyrics pages, which Navbar page opens
     About/         the silent check against Taurus's GitHub Releases and the update alert at the top of Mod Settings;
                    backup, the signing warning and the Mod page with the reset
@@ -333,7 +333,7 @@ logs are not shared unless the user explicitly chooses Copy or Share.
 
 ## Mod Settings
 
-Mod Settings, opened by holding Home on the tab bar or from the first row of the side drawer and the
+Mod Settings, opened by holding Home on the tab bar or from the
 last row of Spotify's Settings, sorts every
 setting by the part of Spotify it changes, so a part's glass, its hide switches and its flags sit on
 one page, the mod's own rows first and Spotify's flags below them or on a sub page named after what
@@ -348,6 +348,8 @@ voice model's download (Redesigned/Lyrics/SingSettings.m), with Off, On, No mode
 each with its own list of tabs. Player: Gestures and Blocked artists (with the count on the row), which work
 with either look. In the redesigned look Appearance holds the profile-photo toggle and accent colour;
 Home page style and the Top picks first-shelf size are independent switches.
+With Home page off, Top picks enlarges the first shelf without changing the feed's order or hiding its heading.
+Regular shelf headings, including Jump back in and Recently played, stay visible.
 The redesigned Player page also has independent Show Sing button and Show Translate button
 switches, the six background styles (Still, Colors, Fluid, Animated, Visualiser and Fill), an Animated fallback
 choice (Still, Colors, Fluid, Visualiser or Fill, default Fill), background opacity sliders for the artwork

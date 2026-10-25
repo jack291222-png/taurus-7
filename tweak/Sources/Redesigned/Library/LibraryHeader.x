@@ -135,9 +135,10 @@ static NSArray<UIView *> *placeRoot(UIView *header) {
         if (!face && isFace(view) && view.bounds.size.width > 1) face = view;
     });
     if (face) [trailing addObject:face];
-    if (!trailing.count) return trailing;
-
-    placeTrailing(header, trailing);
+    CGFloat trailingEdge = trailing.count ? placeTrailing(header, trailing) : header.bounds.size.width - kRowInset;
+    CGRect rowFrame = SGFrameIn(trailing.firstObject ?: spotifyTitle, header);
+    CGFloat leading = face ? SGRSideMargin : MAX(SGRSideMargin, CGRectGetMinX(SGFrameIn(spotifyTitle, header)));
+    layoutTitle(header, spotifyTitle, leading, trailingEdge, CGRectGetMidY(rowFrame));
     for (UIView *control in trailing) watchRow(control.superview, header, placeRoot);
     return trailing;
 }

@@ -26,7 +26,7 @@
 // Tries at finding the tab's name before settling for the English one: a miss walks the window.
 static const NSUInteger kTitleTries = 8;
 
-static char kTitleKey, kTabKey;
+static char kTitleKey, kTabKey, kStackWatchedKey, kLayoutKey;
 static __weak UILabel *sg_title;
 static __weak UIView *sg_face;
 static UIVisualEffectView *sg_bar;
@@ -91,6 +91,8 @@ static __weak UIView *sg_scrim;
 
 static BOOL findHeader(UIView *view) {
     if (sg_stack && [sg_stack isDescendantOfView:view]) return YES;
+    sg_stack = nil;
+    sg_scrim = nil;
     for (UIView *wrapper in view.subviews) {
         UIView *scrim = childNamed(wrapper, @"GradientView");
         if (scrim) sg_scrim = scrim;
@@ -153,8 +155,18 @@ void SGRHomeProfilePhotoPreferenceChanged(void) {
 static void layoutHeader(UIViewController *page) {
     UIView *view = page.viewIfLoaded;
     if (!view || !findHeader(view)) return;
+    if ([objc_getAssociatedObject(page, &kLayoutKey) boolValue]) return;
+    objc_setAssociatedObject(page, &kLayoutKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     UIView *header = sg_header;
     UIStackView *stack = sg_stack;
+    __weak UIViewController *weakPage = page;
+    if (!objc_getAssociatedObject(stack, &kStackWatchedKey)) {
+        objc_setAssociatedObject(stack, &kStackWatchedKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        SGRObserveLayout(stack, ^(UIView *laidOut) {
+            UIViewController *owner = weakPage;
+            if (owner && [laidOut isDescendantOfView:owner.viewIfLoaded]) layoutHeader(owner);
+        });
+    }
     vanish(sg_scrim);
 
     static Class faceClass;
@@ -201,12 +213,14 @@ static void layoutHeader(UIViewController *page) {
         [CATransaction commit];
     }
 
-    static dispatch_once_t once;
-    dispatch_once(&once, ^{
+    static BOOL logged;
+    if (!logged && header.window && frame.size.width > 0 && header.bounds.size.height > 0) {
+        logged = YES;
         SGLog(@"redesign home: header %@, avatar %@ in the stack %@, title %@, scrim %@", NSStringFromCGRect(header.frame),
               face ? NSStringFromCGRect(face.frame) : @"not found", NSStringFromCGRect(stack.frame), NSStringFromCGRect(frame),
               sg_scrim ? @"found" : @"not found");
-    });
+    }
+    objc_setAssociatedObject(page, &kLayoutKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 }
 
 // The page's own list is the one collection view with no other inside which it sits: the shelves are nested in it.

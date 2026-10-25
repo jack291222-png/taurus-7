@@ -14,6 +14,9 @@ and looked at on the Mac without the phone.
 links it with the real `Core/` and `Redesigned/Kit/` sources; `SRC=<other tweak/Sources> ./build.sh` builds
 an older tree instead, to compare. `stubs.m` stands in for the hook files the harness does not compile.
 
+Each report asserts that the Library title is visible and does not overlap any visible header control,
+and that the filter chips and list inset stay intact. The harness uses the scene lifecycle on newer iOS.
+
 It plays issue #21. The page comes up with the header's control row holding Search alone. At 0.8 s the
 header's model lands: Recents and Create show, and the page lays out in the same turn. The mock of
 `AutoLayoutStackView` (the real one's ivars are `observationsDictionary` and `needsCoalescedLayoutUpdate`)
@@ -27,6 +30,9 @@ everything again.
 Launch words: `back` adds the page pass at 2.4 s. `steady` builds the header with the model already in it.
 `nocreate` leaves Create out of the model, and `norecents` leaves Recents out (the account the tree was
 recorded on). Each moment is logged with where every control landed in the header:
+
+`plain-avatar` uses a profile button outside `AdaptiveFaceContainer`, leaving it at Spotify's leading
+edge. It catches a title drawn over the button that opens the side drawer when its container changes.
 
     xcrun simctl spawn <udid> log show --last 1m --style compact --predicate 'eventMessage CONTAINS "[harness]" OR eventMessage CONTAINS "redesign library"'
 
