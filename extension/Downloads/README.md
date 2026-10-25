@@ -22,6 +22,12 @@ GPL-3.0 (`LICENSE-Pixie-GPL-3.0`); its notices stay as they are.
 
 Pass `--no-downloads` to `pipeline.sh` to skip all of it.
 
+The pipeline verifies Downloads in the finished IPA whenever it includes them. To check an existing IPA,
+run `python3 extension/Downloads/tools/verify_downloads.py path/to/Taurus.ipa`. It verifies the companion
+and its load command, and compares all guarded patch entries and trampolines against the expected bytes.
+Run local configuration and packaging regression checks with
+`bash harness/downloads/build.sh` and `python3 -m unittest discover -s harness/downloads -p 'test_*.py'`.
+
 ## What changed from Vitrine-Pixie
 
 - The settings screens are gone; Taurus draws its own in `tweak/Sources/Shared/Downloads/`. The tweak never

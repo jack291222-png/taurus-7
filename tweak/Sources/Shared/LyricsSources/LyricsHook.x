@@ -1,4 +1,5 @@
 #import "Core/SGCore.h"
+#import "Core/SGURLSession.h"
 #import "LyricsSources.h"
 #import "Shared/AdBlock/Protobuf.h"
 #import "Headers/SPTPlayer.h"
@@ -79,7 +80,7 @@ static NSString *trackOf(SPTPlayerTrack *track) {
 }
 
 static NSURL *urlOf(NSURLSessionTask *task) {
-    return task.currentRequest.URL ?: task.originalRequest.URL;
+    return SGURLSessionTaskURL(task);
 }
 
 #pragma mark - the donor
@@ -283,7 +284,7 @@ static SGDisposition takeHandler(SGLyricsTaskState *state) {
 }
 
 static SGLyricsTaskState *classify(NSURLSessionTask *task, NSURLResponse *response) {
-    NSURLRequest *original = task.originalRequest, *current = task.currentRequest;
+    NSURLRequest *original = SGURLSessionTaskRequest(task, YES), *current = SGURLSessionTaskRequest(task, NO);
     NSString *originalAddress = original.URL.absoluteString, *currentAddress = current.URL.absoluteString;
     BOOL lyrics = [originalAddress containsString:kLyricsPath] || [currentAddress containsString:kLyricsPath];
     BOOL cards = [(currentAddress ?: originalAddress) containsString:kCardListPath];

@@ -123,7 +123,12 @@ BOOL SAPPrepareCachedOfflineConfig(NSUserDefaults *defaults) {
     return YES;
 }
 static int taskKind(NSURLSessionTask *task) {
-    NSURL *url = task.currentRequest.URL ?: task.originalRequest.URL;
+    Class asset = NSClassFromString(@"AVAssetDownloadTask");
+    Class aggregate = NSClassFromString(@"AVAggregateAssetDownloadTask");
+    if ((asset && [task isKindOfClass:asset]) || (aggregate && [task isKindOfClass:aggregate])) return 0;
+    NSURL *url;
+    @try { url = task.currentRequest.URL ?: task.originalRequest.URL; }
+    @catch (NSException *exception) { return 0; }
     SAPHTTPTaskKind *cached=objc_getAssociatedObject(task,&taskKindKey);
     if(cached && [cached.url isEqual:url]) {
         if(cached.kind&&SAPTraceIsActive())@synchronized(task){if(cached.traceSegment!=SAPTraceGeneration()){

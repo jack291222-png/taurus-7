@@ -342,8 +342,8 @@ static NSString *workingOr(NSString *(^value)(void)) { return busy ? @"Workingâ€
 
 UIViewController *SGDownloadsSettingsPage(void) {
     if (!SGDownloadsAvailable()) {
-        SGModRow *why = SGWarningRow(@"Downloads aren't in this build", @"Tap to see why", ^{
-            say(@"Downloads", @"Downloads work on Spotify 9.1.90. Taurus checks the exact build when it makes the IPA and only then edits it, so another Spotify version, or an IPA made with --no-downloads, has no Downloads. Build again from a decrypted 9.1.90 IPA to get them.");
+        SGModRow *why = SGWarningRow(@"Downloads are unavailable in this build", @"Tap to see why", ^{
+            say(@"Downloads", SGDownloadsUnavailableReason());
         });
         return [[SGDownloadsPage alloc] initWithTitle:@"Downloads" intro:nil sections:@[
             SGSection(nil, @[why]),

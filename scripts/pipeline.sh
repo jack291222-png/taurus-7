@@ -177,6 +177,11 @@ if [ -n "$DYLIB_PATH" ]; then unzip -p "$OUT" "$DYLIB_PATH" > "${OUT%.ipa}.dylib
 
 [ "$IN" != "$SPOTIFY_IN" ] && rm -f "$IN" "$ROOT/out/.downloads.json"
 
+if [ -n "$DOWNLOADS_DYLIB" ]; then
+  echo "==> verifying Downloads in the finished IPA"
+  python3 "$ROOT/extension/Downloads/tools/verify_downloads.py" "$OUT"
+fi
+
 echo "==> done: $OUT"
 [ "$INSTALL" = 1 ] && exec bash "$ROOT/scripts/install.sh" "$OUT"
 exit 0

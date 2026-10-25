@@ -5,6 +5,7 @@
 // With a source of the mod's on, the color-lyrics body is Shared/LyricsSources' to answer and it
 // hands the lines over.
 #import "Core/SGCore.h"
+#import "Core/SGURLSession.h"
 #import "Lyrics.h"
 #import "Shared/LocalFiles/LocalFiles.h"
 #import "Shared/LocalFiles/LocalLyrics.h"
@@ -160,8 +161,8 @@ void SGKaraokeKeepLines(NSString *track, NSArray<SGKaraokeLine *> *lines) {
 }
 
 static void received(NSURLSession *session, NSURLSessionTask *task, NSData *data) {
-    rememberHeaders(session, task.currentRequest);
-    if (sg_ownSources || !trackInURL(task.currentRequest.URL)) return;
+    rememberHeaders(session, SGURLSessionTaskRequest(task, NO));
+    if (sg_ownSources || !trackInURL(SGURLSessionTaskURL(task))) return;
     NSMutableData *body = objc_getAssociatedObject(task, &kBodyKey);
     if (!body) objc_setAssociatedObject(task, &kBodyKey, (body = [NSMutableData data]), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     [body appendData:data];
@@ -170,12 +171,12 @@ static void received(NSURLSession *session, NSURLSessionTask *task, NSData *data
 static void completed(NSURLSessionTask *task, NSError *error) {
     NSMutableData *body = objc_getAssociatedObject(task, &kBodyKey);
     if (!body) {
-        NSString *path = task.currentRequest.URL.path;
+        NSString *path = SGURLSessionTaskURL(task).path;
         if (!sg_ownSources && [path.lowercaseString containsString:@"lyrics"]) SGLog(@"karaoke: lyrics request not read: %@ (error %@)", path, error);
         return;
     }
     objc_setAssociatedObject(task, &kBodyKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    NSString *track = trackInURL(task.currentRequest.URL);
+    NSString *track = trackInURL(SGURLSessionTaskURL(task));
     if (error || !track) return;
     NSArray<SGKaraokeLine *> *lines = SGKaraokeLinesFromBody(body);
     SGLog(@"karaoke: lyrics for %@, %lu bytes, %lu synced lines", track, (unsigned long)body.length, (unsigned long)lines.count);
@@ -545,14 +546,14 @@ static SGKaraokeTrackWatcher *sg_trackWatcher;
 %group SGSpclientHeadersOnly
 %hook SPTDataLoaderService
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)data {
-    rememberHeaders(session, task.currentRequest);
+    rememberHeaders(session, SGURLSessionTaskRequest(task, NO));
     %orig;
 }
 %end
 
 %hook _TtC26Connectivity_HttpClientKit20HttpClientURLSession
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveData:(NSData *)data {
-    rememberHeaders(session, task.currentRequest);
+    rememberHeaders(session, SGURLSessionTaskRequest(task, NO));
     %orig;
 }
 %end

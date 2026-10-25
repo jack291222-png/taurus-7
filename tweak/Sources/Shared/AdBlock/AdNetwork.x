@@ -8,6 +8,7 @@
 // the real state back are canceled before they leave. Feeds go through Feeds.m. Everything here is
 // EeveeSpotify's, less its Ably hooks, which it does not turn on for 9.1 either.
 #import "Core/SGCore.h"
+#import "Core/SGURLSession.h"
 #import "AdBlock.h"
 
 static BOOL ads, premium;
@@ -145,7 +146,7 @@ static void deliver(id<NSURLSessionDataDelegate> delegate, NSURLSession *session
 // A customize the server says has not changed, answered with the rewritten one from last time.
 static NSHTTPURLResponse *replayFor(NSURLSessionTask *task, NSURLResponse *response) {
     if (!premium || ![response isKindOfClass:NSHTTPURLResponse.class] || ((NSHTTPURLResponse *)response).statusCode != 304) return nil;
-    NSURL *url = task.currentRequest.URL;
+    NSURL *url = SGURLSessionTaskURL(task);
     if (!isCustomize(url.path.lowercaseString ?: @"") || !cached()) return nil;
     objc_setAssociatedObject(task, &kServedKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     return [[NSHTTPURLResponse alloc] initWithURL:url statusCode:200 HTTPVersion:@"HTTP/2.0" headerFields:@{}];
@@ -155,7 +156,7 @@ static NSHTTPURLResponse *replayFor(NSURLSessionTask *task, NSURLResponse *respo
 // one whose reply is rewritten when it finishes.
 static BOOL holds(NSURLSessionTask *task, NSData *data) {
     if (objc_getAssociatedObject(task, &kPassKey)) return NO;
-    switch (classify(task.currentRequest.URL)) {
+    switch (classify(SGURLSessionTaskURL(task))) {
         case SGNetBlock:
             return YES;
         case SGNetPatch: {
@@ -170,7 +171,7 @@ static BOOL holds(NSURLSessionTask *task, NSData *data) {
 }
 
 static void complete(id<NSURLSessionDataDelegate> delegate, NSURLSession *session, NSURLSessionTask *task, NSError *error, void (^finish)(NSError *)) {
-    NSURL *url = task.currentRequest.URL;
+    NSURL *url = SGURLSessionTaskURL(task);
     NSString *path = url.path.lowercaseString ?: @"";
     NSMutableData *buffer = objc_getAssociatedObject(task, &kBufferKey);
     objc_setAssociatedObject(task, &kBufferKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -239,7 +240,7 @@ static void complete(id<NSURLSessionDataDelegate> delegate, NSURLSession *sessio
 // body. Spoof Premium's rules stay off this path, and a failed request keeps its error.
 %hook SPTCoreURLSessionDataDelegate
 - (void)URLSession:(NSURLSession *)session dataTask:(NSURLSessionDataTask *)task didReceiveResponse:(NSURLResponse *)response completionHandler:(void (^)(NSURLSessionResponseDisposition))handler {
-    NSURL *url = task.currentRequest.URL;
+    NSURL *url = SGURLSessionTaskURL(task);
     if (ads && isAd(url, url.path.lowercaseString ?: @"")) {
         objc_setAssociatedObject(task, &kCoreAdKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
         response = [[NSHTTPURLResponse alloc] initWithURL:url statusCode:200 HTTPVersion:@"HTTP/2.0" headerFields:@{}];
@@ -253,7 +254,7 @@ static void complete(id<NSURLSessionDataDelegate> delegate, NSURLSession *sessio
     if (!error && objc_getAssociatedObject(task, &kCoreAdKey)) {
         SGAdBlockSawOne(@"Requests");
         SGAdBlockCountOne(@"Requests");
-        SGLog(@"answered the core's %@ empty", task.currentRequest.URL.path);
+        SGLog(@"answered the core's %@ empty", SGURLSessionTaskURL(task).path);
         deliver((id)self, session, task, [NSData data]);
     }
     %orig;
@@ -268,7 +269,7 @@ static void complete(id<NSURLSessionDataDelegate> delegate, NSURLSession *sessio
 %group Premium
 %hook NSURLSessionTask
 - (void)resume {
-    NSURL *url = self.currentRequest.URL ?: self.originalRequest.URL;
+    NSURL *url = SGURLSessionTaskURL(self);
     NSString *host = url.host.lowercaseString ?: @"", *path = url.path.lowercaseString ?: @"";
     BOOL spotify = has(host, @"spotify") || has(host, @"spclient");
     if (spotify && elapsed() > 30 && (has(path, @"deletetoken") || has(path, @"signup/public") || has(path, @"pses/screenconfig")

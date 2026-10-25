@@ -23,5 +23,6 @@ BOOL SGDownloadsAvailable(void);
 BOOL SGDownloadsActive(void);
 NSString *SGDownloadsSummary(void);
 NSString *SGDownloadsRowSummary(void);
+NSString *SGDownloadsUnavailableReason(void);
 
 UIViewController *SGDownloadsSettingsPage(void);
