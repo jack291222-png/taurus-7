@@ -1,6 +1,5 @@
-// The lock screen's artwork moves: the track's Canvas, else Apple Music's animated album cover. Failing
-// both, Every song falls back to the cover over a moving blur of itself (SGFluidClip.h) and Moving artwork
-// to Fill's clip (SGFillClip.h). iOS 26 takes a
+// The lock screen can show the track's Canvas or Apple Music's animated album cover, or Every song's cover
+// over a moving blur of itself (SGFluidClip.h). iOS 26 takes a
 // local video through MPMediaItemAnimatedArtwork under one of two now playing keys, 1:1 or 3:4, of those
 // the system lists. It rides on Spotify's now playing info as an extra (Shared/Player/NowPlayingExtras.h).
 //
@@ -11,7 +10,7 @@
 // the track names, so an album's songs share one.
 //
 // The choice is read on every track, and a change applies at once: Off takes the clip away, Moving artwork
-// and Every song look the playing track up, and Fill makes a generated sharp-to-blurred cover clip.
+// looks the track up, Every song uses the cover over a moving blur, and Fill generates a sharp-to-blurred clip.
 // Lyrics is LyricsArtwork.x's, which reads it only at launch, so a launch with Lyrics leaves this off until
 // the next one.
 #import <MediaPlayer/MediaPlayer.h>
@@ -38,7 +37,7 @@ static NSURL *sg_lyricsFile;
 static BOOL sg_plain, sg_plainShown;
 
 static BOOL motionOn(SGLockArtwork choice) {
-    return SGLockArtworkHasMotion(choice);
+    return choice == SGLockArtworkMotion;
 }
 
 // The key a clip shown at `shown` goes under, and the shape it is cut to (width over height): 1:1 for a
@@ -212,10 +211,13 @@ void SGLockMotionShowPlain(BOOL plain) {
         sg_choice = SGLockScreenArtwork();
         sg_queue = dispatch_queue_create("spotifyglass.lockscreen.motion", DISPATCH_QUEUE_SERIAL);
         __block BOOL canvasLyrics = SGLockScreenCanvasLyricsEnabled();
+        __block NSArray<NSString *> *starViews = SGLockScreenStarViewOrder();
+        __block BOOL starEnabled = SGHidden(SGKeyLockScreenStar);
         __block CGFloat coverScale = SGLockScreenCoverArtworkScale();
         __block NSUInteger coverScaleRequest = 0;
         // Each walk takes the last one's clip off first, so the lock screen falls back to the still cover.
         sg_follower = [[SGMotionFollower alloc] initWithBegin:^BOOL(NSString *uri, SPTPlayerState *state) {
+            SGLockScreenStarEnsureView();
             sg_walk++;
             SGNowPlayingSetExtras(@"motion", nil, nil);
             sg_lyricsFile = nil;
@@ -228,30 +230,45 @@ void SGLockMotionShowPlain(BOOL plain) {
                 showFill(sg_picture);
                 return NO;
             }
+            if (sg_choice == SGLockArtworkEverySong) {
+                showCover(sg_picture);
+                return NO;
+            }
             return motionOn(sg_choice);
         } found:^(NSString *uri, NSURL *file) {
             if (SGLockScreenCanvasLyricsEnabled() && motionOn(sg_choice)) {
                 sg_lyricsFile = file;
                 SGLyricsArtworkSetMotion(uri, file);
                 SGLockMotionShowPlain(sg_plain);
-            } else if (file) show(file);
-            else if (sg_choice == SGLockArtworkEverySong) showCover(sg_picture);
-            else if (sg_choice == SGLockArtworkMotion) showFill(sg_picture);
+            } else if (file) {
+                show(file);
+            } else if (motionOn(sg_choice)) {
+                NSString *fallback = SGLockScreenMotionFallbackView();
+                if ([fallback isEqualToString:@"fill"]) showFill(sg_picture);
+                else if ([fallback isEqualToString:@"colorful"]) showCover(sg_picture);
+                SGLog(@"lock motion: no clip for %@, %@ for this track; Canvas stays selected", uri, fallback ?: @"album artwork");
+            }
         }];
         // Heard on the writing thread and handed to main without waiting: a main-queue observer makes every
         // background defaults write wait for main, which deadlocks launch while main waits on Spotify's CoreThread.
         [NSNotificationCenter.defaultCenter addObserverForName:NSUserDefaultsDidChangeNotification object:nil queue:nil
                                                     usingBlock:^(NSNotification *note) {
             dispatch_async(dispatch_get_main_queue(), ^{
+                SGLockScreenStarEnsureView();
                 SGLockArtwork choice = SGLockScreenArtwork();
                 BOOL lyrics = SGLockScreenCanvasLyricsEnabled();
+                NSArray<NSString *> *newStarViews = SGLockScreenStarViewOrder();
+                BOOL newStarEnabled = SGHidden(SGKeyLockScreenStar);
                 CGFloat newCoverScale = SGLockScreenCoverArtworkScale();
-                BOOL modeChanged = choice != sg_choice || lyrics != canvasLyrics;
+                BOOL modeChanged = choice != sg_choice || lyrics != canvasLyrics
+                    || ![starViews isEqualToArray:newStarViews] || starEnabled != newStarEnabled;
                 BOOL scaleChanged = newCoverScale != coverScale;
                 if (!modeChanged && !scaleChanged) return;
                 SGLog(@"lock motion: artwork mode, Canvas lyrics or fallback cover size changed");
                 sg_choice = choice;
                 canvasLyrics = lyrics;
+                starViews = newStarViews;
+                starEnabled = newStarEnabled;
                 coverScale = newCoverScale;
                 if (modeChanged) {
                     coverScaleRequest++;
@@ -265,7 +282,7 @@ void SGLockMotionShowPlain(BOOL plain) {
                 }
             });
         }];
-        SGLog(@"lock motion: %@, the lock screen takes %@", motionOn(sg_choice) ? (sg_choice == SGLockArtworkEverySong ? @"on for every song" : @"on") : @"off",
+        SGLog(@"lock motion: %@, the lock screen takes %@", motionOn(sg_choice) ? @"on" : @"off",
               MPNowPlayingInfoCenter.supportedAnimatedArtworkKeys);
     }
 }

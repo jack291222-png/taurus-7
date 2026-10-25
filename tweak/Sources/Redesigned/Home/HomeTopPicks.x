@@ -40,9 +40,10 @@ static void stripBase(UIView *cell, NSUInteger depth);
 static UICollectionViewCompositionalLayoutSectionProvider wrapped(UICollectionViewCompositionalLayoutSectionProvider provider, SGRLayoutBox *box) {
     return ^NSCollectionLayoutSection *(NSInteger section, id<NSCollectionLayoutEnvironment> environment) {
         UICollectionViewCompositionalLayout *layout = box.layout;
+        if (!layout || !objc_getAssociatedObject(layout, &kLargeKey)) return provider(section, environment);
         BOOL was = sg_enlarging;
         CGFloat wasWidth = sg_cardWidth;
-        sg_enlarging = layout && objc_getAssociatedObject(layout, &kLargeKey) != nil;
+        sg_enlarging = YES;
         sg_cardWidth = 0;
         NSCollectionLayoutSection *made = provider(section, environment);
         if (layout && sg_cardWidth > 0) objc_setAssociatedObject(layout, &kWidthKey, @(sg_cardWidth), OBJC_ASSOCIATION_RETAIN_NONATOMIC);
@@ -61,12 +62,12 @@ static UICollectionViewCompositionalLayout *boxed(UICollectionViewCompositionalL
 %hook UICollectionViewCompositionalLayout
 - (instancetype)initWithSectionProvider:(UICollectionViewCompositionalLayoutSectionProvider)provider
                           configuration:(UICollectionViewCompositionalLayoutConfiguration *)configuration {
-    if (!provider) return %orig;
+    if (!provider || !SGFlag(SGRKeyHomeTopPicks, NO)) return %orig;
     SGRLayoutBox *box = [SGRLayoutBox new];
     return boxed(%orig(wrapped(provider, box), configuration), box);
 }
 - (instancetype)initWithSectionProvider:(UICollectionViewCompositionalLayoutSectionProvider)provider {
-    if (!provider) return %orig;
+    if (!provider || !SGFlag(SGRKeyHomeTopPicks, NO)) return %orig;
     SGRLayoutBox *box = [SGRLayoutBox new];
     return boxed(%orig(wrapped(provider, box)), box);
 }
@@ -79,7 +80,7 @@ static CGFloat growth(CGFloat width) {
 
 %hook NSCollectionLayoutSize
 + (instancetype)sizeWithWidthDimension:(NSCollectionLayoutDimension *)width heightDimension:(NSCollectionLayoutDimension *)height {
-    if (!width.isAbsolute || width.dimension < kSmallest) return %orig;
+    if (!sg_enlarging || !width.isAbsolute || width.dimension < kSmallest) return %orig;
     // The cards come first, then the row that holds them all (1634 by 195 on the phone): the row is as many cards
     // wide, so it widens by kScale too, but grows in height only as much as a card does.
     sg_cardWidth = sg_cardWidth > 0 ? MIN(sg_cardWidth, width.dimension) : width.dimension;
@@ -109,7 +110,7 @@ static NSArray<NSIndexPath *> *pathsBetween(UICollectionView *list, NSIndexPath 
 }
 
 static NSDictionary<NSIndexPath *, NSValue *> *swappedFrames(UICollectionViewLayout *layout) {
-    if (!SGRHomeGlassStyle()) return nil;
+    if (!SGRHomeGlassStyle() || !SGFlag(SGRKeyHomeTopPicks, NO)) return nil;
     UICollectionView *list = layout.collectionView;
     if (!list || !sg_shortcutsPath || !sg_topPath || [sg_shortcutsPath compare:sg_topPath] != NSOrderedAscending) return nil;
     if (sg_pageLayout != layout) return nil;
@@ -158,30 +159,49 @@ static NSDictionary<NSIndexPath *, NSValue *> *swappedFrames(UICollectionViewLay
 
 %hook UICollectionViewCompositionalLayout
 - (NSArray<UICollectionViewLayoutAttributes *> *)layoutAttributesForElementsInRect:(CGRect)rect {
-    if (sg_reordering || sg_pageLayout != (UICollectionViewLayout *)self) return %orig;
-    // Asked for the whole of the swapped range, so a block that moves into the rect is found.
+    if (sg_reordering || !SGFlag(SGRKeyHomeTopPicks, NO) || sg_pageLayout != (UICollectionViewLayout *)self) return %orig;
     NSDictionary *frames = swappedFrames((UICollectionViewLayout *)self);
     if (!frames) return %orig;
+
     sg_reordering = YES;
-    NSArray *all = %orig(CGRectInfinite);
+    NSArray *visible = %orig(rect);
     sg_reordering = NO;
-    NSMutableArray *out = [NSMutableArray array];
-    for (UICollectionViewLayoutAttributes *item in all) {
+    NSMutableArray *out = [NSMutableArray arrayWithCapacity:visible.count + frames.count];
+    NSMutableSet<NSIndexPath *> *included = [NSMutableSet setWithCapacity:visible.count];
+    for (UICollectionViewLayoutAttributes *item in visible) {
         UICollectionViewLayoutAttributes *a = item;
         NSValue *moved = a.representedElementCategory == UICollectionElementCategoryCell ? frames[a.indexPath] : nil;
         if (moved) {
+            [included addObject:a.indexPath];
             a = [item copy];
             a.frame = moved.CGRectValue;
             if ([a.indexPath isEqual:sg_headingPath]) { a.hidden = YES; a.alpha = 0; }
+            if (CGRectIntersectsRect(a.frame, rect)) [out addObject:a];
+        } else {
+            [out addObject:a];
         }
-        if (CGRectIntersectsRect(a.frame, rect)) [out addObject:a];
+    }
+
+    // Add only moved cells that entered the requested rect; avoid enumerating the entire Home feed.
+    for (NSIndexPath *path in frames) {
+        NSValue *frameValue = [frames objectForKey:path];
+        if ([included containsObject:path] || !CGRectIntersectsRect(frameValue.CGRectValue, rect)) continue;
+        sg_reordering = YES;
+        UICollectionViewLayoutAttributes *item = [self layoutAttributesForItemAtIndexPath:path];
+        sg_reordering = NO;
+        if (!item) continue;
+        [included addObject:path];
+        UICollectionViewLayoutAttributes *a = [item copy];
+        a.frame = frameValue.CGRectValue;
+        if ([path isEqual:sg_headingPath]) { a.hidden = YES; a.alpha = 0; }
+        [out addObject:a];
     }
     return out;
 }
 
 - (UICollectionViewLayoutAttributes *)layoutAttributesForItemAtIndexPath:(NSIndexPath *)path {
     UICollectionViewLayoutAttributes *a = %orig;
-    if (sg_reordering || sg_pageLayout != (UICollectionViewLayout *)self || !a) return a;
+    if (sg_reordering || !SGFlag(SGRKeyHomeTopPicks, NO) || sg_pageLayout != (UICollectionViewLayout *)self || !a) return a;
     NSValue *moved = swappedFrames((UICollectionViewLayout *)self)[path];
     if (!moved) return a;
     a = [a copy];
@@ -214,7 +234,10 @@ static NSDictionary<NSIndexPath *, NSValue *> *swappedFrames(UICollectionViewLay
     if (pageList && pageList.collectionViewLayout != sg_pageLayout) {
         sg_pageLayout = pageList.collectionViewLayout;
         sg_shortcutsPath = sg_topPath = nil;
+        sg_headingPath = nil;
+        sg_topIndex = NSIntegerMax;
     }
+    if (!SGFlag(SGRKeyHomeTopPicks, NO)) return result;
     if (root && ![root isKindOfClass:shelf ?: NSObject.class] && [root isKindOfClass:UICollectionView.class]) {
         UIView *first = ((UICollectionView *)root).visibleCells.firstObject;
         if ([NSStringFromClass(object_getClass(first.subviews.firstObject)) containsString:@"Home_AnchorsAndShortcutsKit"]
@@ -312,6 +335,13 @@ static UICollectionView *pageListOf(UIView *shelf) {
     return nil;
 }
 
+static BOOL isHomeShelf(UICollectionView *shelf) {
+    for (UIView *view = shelf; view; view = view.superview) {
+        if ([NSStringFromClass(object_getClass(view)) containsString:@"Home_EvoPageImpl13HomeStructure"]) return YES;
+    }
+    return NO;
+}
+
 static UIImage *coverOf(UIView *card) {
     UIView *holder = SGRFindByIdentifier(card, @"Encore.ImageView", &kAuraImageKey);
     for (UIView *sub in holder.subviews) {
@@ -357,6 +387,7 @@ static void paintAura(UICollectionView *list, UIColor *color) {
 }
 
 static void followAlbum(UICollectionView *shelf) {
+    if (!isHomeShelf(shelf)) return;
     if (SGFlag(SGRKeyHomeTopPicks, NO)) pokeCards(shelf);
     if (!SGRHomeGlassStyle()) return;
     UICollectionView *list = pageListOf(shelf);

@@ -17,18 +17,25 @@
 #define SGKeyLockScreenCoverArtworkScale @"spotifyglass.lockscreen.coverArtworkScale"
 typedef NS_ENUM(NSInteger, SGLockArtwork) {
     SGLockArtworkOff = 0,
-    SGLockArtworkMotion,   // the Canvas, else Apple Music's animated cover, else Fill (LockScreenMotion.x)
+    SGLockArtworkMotion,   // the Canvas, else Apple Music's animated cover (LockScreenMotion.x)
     SGLockArtworkLyrics,   // a clip per line of lyrics (Shared/LockScreenLyrics/LyricsArtwork.x)
-    SGLockArtworkEverySong,   // Moving artwork, else the cover over a moving blur of it (LockScreenMotion.x)
+    SGLockArtworkEverySong,   // The cover over its moving blur; never a source animation (LockScreenMotion.x)
     SGLockArtworkFill,   // a sharp cover fading into progressively blurred artwork
 };
 // Off below iOS 26, which has no animated artwork on the lock screen.
 SGLockArtwork SGLockScreenArtwork(void);
 NSArray<NSString *> *SGLockScreenStarViewOrder(void);
+NSString *SGLockScreenStarCurrentView(void);
+// With star switching on, an active view disabled by the user moves to the first enabled view.
+void SGLockScreenStarEnsureView(void);
 void SGLockScreenStarAdvanceView(void);
+// An enabled still/generated fallback for this track only; the saved motion choice stays selected.
+NSString *SGLockScreenMotionFallbackView(void);
 CGFloat SGLockScreenCoverArtworkScale(void);
 BOOL SGLockScreenCanvasLyricsEnabled(void);
 void SGLockScreenCanvasLyricsSetEnabled(BOOL enabled);
+void SGLockScreenLyricsExclusivityChanged(BOOL enabled);
+void SGLockScreenArtistLyricsChanged(BOOL enabled);
 void SGLockMotionShowPlain(BOOL plain);
 static inline BOOL SGLockArtworkHasMotion(SGLockArtwork artwork) {
     return artwork == SGLockArtworkMotion || artwork == SGLockArtworkEverySong;
@@ -77,7 +84,8 @@ void SGMotionClipFor(NSString *uri, NSURL *canvas, NSString *artist, NSString *a
 // state, as it does on a skip, where Spotify reports the track before its extended metadata, unless the clip
 // showing came from a source above Canvas. `begin` runs as a walk starts, to take the last clip off, and
 // says whether to walk at all; `found` gets the walk's clip, nil for none, and never runs for a walk a newer
-// one overtook. Once a walk has ended, the next track's clip is fetched ahead. Main queue.
+// one overtook. Changing the source order re-walks the current track. Once a walk has ended, the next
+// track's clip is fetched ahead. Main queue.
 @class SPTPlayerState;
 @interface SGMotionFollower : NSObject
 - (instancetype)initWithBegin:(BOOL (^)(NSString *uri, SPTPlayerState *state))begin

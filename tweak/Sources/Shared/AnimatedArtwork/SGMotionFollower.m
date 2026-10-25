@@ -18,14 +18,33 @@
     NSString *_source;   // where the clip found came from, nil for none or not found yet
     NSUInteger _walk;    // counts the walks, so an overtaken one is told from the newest
     NSString *_ahead;    // the next track whose clip was fetched ahead
+    NSArray<NSString *> *_sourceOrder;
+    id _preferencesObserver;
 }
 
 - (instancetype)initWithBegin:(BOOL (^)(NSString *, SPTPlayerState *))begin found:(void (^)(NSString *, NSURL *))found {
     if (!(self = [super init])) return nil;
     _begin = [begin copy];
     _found = [found copy];
+    _sourceOrder = [SGMotionSourceOrder() copy];
+    __weak SGMotionFollower *weakSelf = self;
+    _preferencesObserver = [NSNotificationCenter.defaultCenter addObserverForName:NSUserDefaultsDidChangeNotification
+        object:nil queue:nil usingBlock:^(NSNotification *note) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                SGMotionFollower *follower = weakSelf;
+                if (!follower) return;
+                NSArray<NSString *> *order = SGMotionSourceOrder();
+                if ([follower->_sourceOrder isEqualToArray:order]) return;
+                follower->_sourceOrder = [order copy];
+                [follower restart];
+            });
+        }];
     SGAddPlayerStateObserver(self);
     return self;
+}
+
+- (void)dealloc {
+    if (_preferencesObserver) [NSNotificationCenter.defaultCenter removeObserver:_preferencesObserver];
 }
 
 - (void)playerStateDidChange:(SPTPlayerState *)state {
@@ -33,8 +52,9 @@
     if (!uri) return;
     NSURL *canvas = SGMotionCanvasIn(state.track.metadata);
     if ([uri isEqualToString:_track]) {
-        if (!_walked || _canvas || !canvas || !SGMotionCanvasOutranks(SGMotionSourceOrder(), _source)) return;
-        SGLog(@"motion: the Canvas of %@ came after the track, asked again", uri);
+        if (!_walked || !canvas || [canvas isEqual:_canvas]) return;
+        if (![_source isEqualToString:@"canvas"] && !SGMotionCanvasOutranks(SGMotionSourceOrder(), _source)) return;
+        SGLog(@"motion: the Canvas metadata of %@ changed, asked again", uri);
     }
     [self walk:state uri:uri canvas:canvas];
 }
@@ -76,6 +96,7 @@
 
 - (void)restart {
     _track = nil;
+    _ahead = nil;
     _walk++;
     SPTPlayerState *state = SGPlayerState();
     if (state) [self playerStateDidChange:state];

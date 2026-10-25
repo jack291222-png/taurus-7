@@ -15,6 +15,7 @@
 #import "Shared/LiveActivity/LiveActivity.h"
 #import "Shared/HeadGestures/HeadGestures.h"
 #import "Shared/Haptics/Haptics.h"
+#import "Shared/Downloads/Downloads.h"
 #import "Shared/ListeningStats/ListeningStats.h"
 #import "App/About/About.h"
 #import "Pages.h"
@@ -70,7 +71,7 @@ static UIColor *SGRainbowTextColor(CGFloat width, CGFloat height, double phase) 
 }
 
 - (instancetype)initWithSections:(NSArray<SGModSection *> *)sections {
-    return [super initWithTitle:@"taurus" intro:nil sections:sections footer:@"Contributor: @Pulse-Ice (EeveeImmersive)"];
+    return [super initWithTitle:@"taurus" intro:nil sections:sections footer:@"Contributor: @Pulse-Ice (EeveeImmersive)\nBug fixes: @darkit"];
 }
 
 - (void)viewDidLoad {
@@ -226,11 +227,15 @@ static UIViewController *modSettingsPage(void) {
     // The audio effects work on the sound, so both looks have them, with what they are doing beside the chevron.
     SGModRow *audioEffects = pageRow(@"Audio effects", @"slider.vertical.3", ^UIViewController *{ return SGDSPSettingsPage(); });
     audioEffects.value = ^NSString *{ return SGDSPSummary(); };
+    SGModRow *downloads = pageRow(@"Downloads", @"arrow.down.circle", ^UIViewController *{ return SGDownloadsSettingsPage(); });
+    downloads.value = ^NSString *{ return SGDownloadsRowSummary(); };
+    downloads.refreshOn = SGDownloadsDidChangeNotification;
     NSMutableArray<SGModRow *> *parts = [NSMutableArray arrayWithArray:@[
         pageRow(@"Appearance", @"paintpalette", ^UIViewController *{ return SGAppearanceSettingsPage(); }),
         pageRow(@"Navbar", @"dock.rectangle", ^UIViewController *{ return SGNavbarPage(); }),
         pageRow(@"Player", @"play.circle", ^UIViewController *{ return SGPlayerSettingsPage(); }),
         pageRow(@"Lyrics", @"quote.bubble", ^UIViewController *{ return SGLyricsSettingsPage(); }),
+        downloads,
         pageRow(@"Lock Screen", @"lock.iphone", ^UIViewController *{ return SGLockScreenSettingsPage(); }),
         audioEffects,
         pageRow(@"Vibrations", @"iphone.radiowaves.left.and.right", ^UIViewController *{ return SGVibrationsSettingsPage(); }),
@@ -274,6 +279,7 @@ static UIViewController *modSettingsPage(void) {
 #pragma mark - row in the settings list
 
 @interface SGModSettingsRow : UIControl
+@property (nonatomic) BOOL drawer;
 @end
 
 @implementation SGModSettingsRow {
@@ -297,10 +303,11 @@ static UIViewController *modSettingsPage(void) {
 - (void)layoutSubviews {
     [super layoutSubviews];
     _title.font = SGTitleFont();
-    CGFloat width = self.bounds.size.width, height = self.bounds.size.height;
-    _icon.frame = CGRectMake(12, (height - 24) / 2, 24, 24);
-    _title.frame = CGRectMake(48, 0, width - 96, height);
+    CGFloat width = self.bounds.size.width, height = self.bounds.size.height, lead = self.drawer ? 4 : 0;
+    _icon.frame = CGRectMake(12 + lead, (height - 24) / 2, 24, 24);
+    _title.frame = CGRectMake(48 + lead, 0, width - 96, height);
     _chevron.frame = CGRectMake(width - 24, (height - 12) / 2, 12, 12);
+    _chevron.hidden = self.drawer;
 }
 
 - (void)setHighlighted:(BOOL)highlighted {
@@ -322,6 +329,13 @@ static UINavigationController *navigationIn(UIViewController *page) {
     for (UIResponder *r = self; r && !owner; r = r.nextResponder) {
         if ([r isKindOfClass:UIViewController.class]) owner = (UIViewController *)r;
     }
+    UIViewController *presenting = self.drawer ? owner.presentingViewController : nil;
+    if (presenting) {
+        [presenting dismissViewControllerAnimated:YES completion:^{
+            SGShowPage(navigationIn(presenting).topViewController ?: presenting, modSettingsPage());
+        }];
+        return;
+    }
     SGShowPage(owner, modSettingsPage());
 }
 
@@ -341,15 +355,27 @@ void SGOpenModSettings(UIView *source) {
 static void placeRow(UICollectionView *list, SGModSettingsRow *row) {
     SGAdoptFonts(list, row);
     CGFloat bottom = list.contentSize.height;
-    row.hidden = bottom <= 0;
-    row.frame = CGRectMake(0, bottom, list.bounds.size.width, kRowHeight);
+    row.hidden = !row.drawer && bottom <= 0;
+    row.frame = CGRectMake(0, row.drawer ? -kRowHeight : bottom, list.bounds.size.width, kRowHeight);
 
     UIEdgeInsets inset = list.contentInset;
     NSValue *applied = objc_getAssociatedObject(list, &kInsetKey);
     if (applied && UIEdgeInsetsEqualToEdgeInsets(inset, applied.UIEdgeInsetsValue)) return;
-    inset.bottom += kRowHeight;
+    if (row.drawer) inset.top += kRowHeight;
+    else inset.bottom += kRowHeight;
     objc_setAssociatedObject(list, &kInsetKey, [NSValue valueWithUIEdgeInsets:inset], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     list.contentInset = inset;
+}
+
+static SGModSettingsRow *ensureDrawerRow(UICollectionView *list) {
+    SGModSettingsRow *row = objc_getAssociatedObject(list, &kRowKey);
+    if (!row) {
+        row = [[SGModSettingsRow alloc] initWithFrame:CGRectZero];
+        row.drawer = YES;
+        objc_setAssociatedObject(list, &kRowKey, row, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    }
+    if (row.superview != list) [list addSubview:row];
+    return row;
 }
 
 static UIViewController *settingsListIn(UIViewController *page, Class kind) {
@@ -398,29 +424,71 @@ static UIColor *planBadgeColor(void) {
                             blue:(rgb & 0xFF) / 255.0 alpha:1];
 }
 
-static void updatePlanBadge(UIView *root) {
+static __weak UIView *sg_drawerRoot;
+
+static BOOL isDrawerBadgeLabel(UILabel *label) {
+    for (UIView *view = label; view; view = view.superview) {
+        if (view == sg_drawerRoot ||
+            [NSStringFromClass(view.class) containsString:@"SideDrawerListCollectionView"]) return YES;
+    }
+    return NO;
+}
+
+static void stylePlanBadgeLabel(UILabel *label) {
     UIColor *color = planBadgeColor();
     CGFloat red = 0, green = 0, blue = 0, alpha = 0;
     [color getRed:&red green:&green blue:&blue alpha:&alpha];
-    UIColor *textColor = (0.2126 * red + 0.7152 * green + 0.0722 * blue) > 0.55 ? UIColor.blackColor : UIColor.whiteColor;
+    if (![label.text isEqualToString:@"Taurus"]) label.text = @"Taurus";
+    label.textColor = (0.2126 * red + 0.7152 * green + 0.0722 * blue) > 0.55 ? UIColor.blackColor : UIColor.whiteColor;
+    label.backgroundColor = color;
+    label.layer.backgroundColor = color.CGColor;
+    label.layer.cornerRadius = 0;
+    label.clipsToBounds = NO;
+
+    CGRect labelBounds = label.bounds;
+    for (UIView *badge = label.superview; badge && badge != sg_drawerRoot; badge = badge.superview) {
+        CGRect labelFrame = [label convertRect:labelBounds toView:badge];
+        if (badge.bounds.size.width > CGRectGetWidth(labelFrame) + 80 ||
+            badge.bounds.size.height > CGRectGetHeight(labelFrame) + 32) break;
+        badge.backgroundColor = color;
+        badge.layer.backgroundColor = color.CGColor;
+        badge.layer.cornerRadius = 0;
+        badge.layer.masksToBounds = NO;
+    }
+}
+
+static void updatePlanBadge(UIView *root) {
     SGForEachView(root, ^(UIView *view) {
         if (![view isKindOfClass:UILabel.class]) return;
         UILabel *label = (UILabel *)view;
-        if (![label.text isEqualToString:@"Spotify Free"] && ![label.text isEqualToString:@"Taurine"]) return;
-        label.text = @"Taurine";
-        label.textColor = textColor;
-        UIView *badge = label.superview;
-        badge.backgroundColor = color;
-        badge.layer.cornerRadius = CGRectGetHeight(badge.bounds) / 2;
-        badge.clipsToBounds = YES;
+        if (![label.text isEqualToString:@"Spotify Free"] && ![label.text isEqualToString:@"Taurine"] &&
+            ![label.text isEqualToString:@"Taurus"]) return;
+        stylePlanBadgeLabel(label);
     });
 }
 
-// This hook carries the drawer's "Taurine" plan badge; the mod settings row is gone from the drawer.
+%hook UILabel
+- (void)setText:(NSString *)text {
+    %orig;
+    if (![text isEqualToString:@"Spotify Free"] && ![text isEqualToString:@"Taurine"] &&
+        ![text isEqualToString:@"Taurus"]) return;
+    if (!isDrawerBadgeLabel(self)) return;
+    if (![text isEqualToString:@"Taurus"]) %orig(@"Taurus");
+    stylePlanBadgeLabel(self);
+}
+%end
+
+// Keep the drawer's plan badge and the Taurus settings row current as Spotify rebuilds its view.
 %hook _TtC23SideDrawer_ListPageImpl18ListViewController
 - (void)viewDidLayoutSubviews {
     %orig;
-    updatePlanBadge(((UIViewController *)self).view);
+    sg_drawerRoot = ((UIViewController *)self).view;
+    updatePlanBadge(sg_drawerRoot);
+    SGForEachView(sg_drawerRoot, ^(UIView *view) {
+        if (![view isKindOfClass:UICollectionView.class] ||
+            ![NSStringFromClass(view.class) containsString:@"SideDrawerListCollectionView"]) return;
+        ensureDrawerRow((UICollectionView *)view);
+    });
 }
 %end
 
@@ -429,6 +497,10 @@ static void updatePlanBadge(UIView *root) {
 - (void)layoutSubviews {
     %orig;
     SGModSettingsRow *row = objc_getAssociatedObject(self, &kRowKey);
+    BOOL drawerList = [NSStringFromClass(self.class) containsString:@"SideDrawerListCollectionView"];
+    if (drawerList) updatePlanBadge(self);
+    if (!row && drawerList)
+        row = ensureDrawerRow(self);
     if (row && row.superview != self) [self addSubview:row];
     if (row) placeRow(self, row);
 }

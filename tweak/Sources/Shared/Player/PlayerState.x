@@ -28,8 +28,12 @@ SPTPlayerState *SGPlayerState(void) {
 static NSString *keyOf(SPTPlayerState *state) {
     SPTPlayerOptions *options = [state respondsToSelector:@selector(options)] ? state.options : nil;
     BOOL shuffling = [options respondsToSelector:@selector(shufflingContext)] && options.shufflingContext;
-    return [NSString stringWithFormat:@"%@|%@|%d%d%d%d", SGURIString(state.track.URI), SGURIString(state.contextURI),
-            state.isPaused, state.isPlaying, [state respondsToSelector:@selector(isLoading)] && state.isLoading, shuffling];
+    NSDictionary *metadata = [state.track.metadata isKindOfClass:NSDictionary.class] ? state.track.metadata : nil;
+    NSString *canvas = [metadata[@"canvas.url"] isKindOfClass:NSString.class] ? metadata[@"canvas.url"] : @"";
+    NSString *kind = [metadata[@"canvas.type"] isKindOfClass:NSString.class] ? metadata[@"canvas.type"] : @"";
+    return [NSString stringWithFormat:@"%@|%@|%d%d%d%d|%@|%@", SGURIString(state.track.URI), SGURIString(state.contextURI),
+            state.isPaused, state.isPlaying, [state respondsToSelector:@selector(isLoading)] && state.isLoading, shuffling,
+            canvas, kind];
 }
 
 static void publish(SPTPlayerState *state) {

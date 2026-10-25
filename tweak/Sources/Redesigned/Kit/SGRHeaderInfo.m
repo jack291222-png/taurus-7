@@ -39,7 +39,10 @@ static BOOL setText(UILabel *label, NSString *text) {
     UIView *_card;
     SGRMirrorButton *_shuffle, *_trailing;
     SGRPlayCapsule *_play;
+    UIScrollView *_albumControls;
+    SGRMirrorButton *_albumDownload;
     __weak UIView *_creatorLink;
+    NSUInteger _playerRefreshGeneration;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -65,7 +68,14 @@ static BOOL setText(UILabel *label, NSString *text) {
         button.hidden = YES;
         [self addSubview:button];
     }
+    SGAddPlayerStateObserver(self);
+    [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationDidBecomeActive:)
+                                               name:UIApplicationDidBecomeActiveNotification object:nil];
     return self;
+}
+
+- (void)dealloc {
+    [NSNotificationCenter.defaultCenter removeObserver:self];
 }
 
 - (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event {
@@ -192,6 +202,63 @@ static BOOL setText(UILabel *label, NSString *text) {
     if (_trailing.source) [_trailing feedFrom:_trailing.source];
 }
 
+- (void)refreshButtons {
+    if (_shuffle.source) [_shuffle feedFrom:_shuffle.source];
+    if (_play.source) [_play feedFrom:_play.source];
+    if (_trailing.source) [_trailing feedFrom:_trailing.source];
+}
+
+- (void)playerStateDidChange:(SPTPlayerState *)state {
+    NSUInteger generation = ++_playerRefreshGeneration;
+    __weak SGRHeaderInfo *weakSelf = self;
+    for (NSNumber *delay in @[@0, @0.25, @0.8]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)),
+                       dispatch_get_main_queue(), ^{
+            SGRHeaderInfo *strongSelf = weakSelf;
+            if (strongSelf && generation == strongSelf->_playerRefreshGeneration) [strongSelf refreshButtons];
+        });
+    }
+}
+
+- (void)applicationDidBecomeActive:(NSNotification *)note {
+    NSUInteger generation = ++_playerRefreshGeneration;
+    [self refreshButtons];
+    __weak SGRHeaderInfo *weakSelf = self;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.3 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+        SGRHeaderInfo *strongSelf = weakSelf;
+        if (strongSelf && generation == strongSelf->_playerRefreshGeneration) [strongSelf refreshButtons];
+    });
+}
+
+- (void)showAlbumShuffle:(UIView *)shuffle play:(UIView *)play download:(UIView *)download
+                    add:(UIView *)add playColor:(UIColor *)playColor {
+    if (!_albumControls) {
+        _albumControls = [UIScrollView new];
+        _albumControls.showsHorizontalScrollIndicator = NO;
+        _albumControls.showsVerticalScrollIndicator = NO;
+        _albumControls.contentInsetAdjustmentBehavior = UIScrollViewContentInsetAdjustmentNever;
+        _albumControls.delaysContentTouches = NO;
+        _albumControls.directionalLockEnabled = YES;
+        _albumControls.clipsToBounds = NO;
+        _albumControls.accessibilityIdentifier = @"Taurus.Album.Actions";
+        [self addSubview:_albumControls];
+        [_albumControls addSubview:_shuffle];
+        _albumDownload = [[SGRMirrorButton alloc] initWithFrame:CGRectZero];
+        _albumDownload.fallbackGlyph = [UIImage systemImageNamed:@"arrow.down"];
+        _albumDownload.accessibilityIdentifier = @"Taurus.Album.Download";
+        [_albumControls addSubview:_albumDownload];
+        [_albumControls addSubview:_trailing];
+    }
+    [self showShuffle:shuffle play:play trailing:add
+     trailingFallback:[UIImage systemImageNamed:@"plus"] playColor:playColor];
+    if (download) [_albumDownload feedFrom:download];
+    BOOL hide = download == nil;
+    if (_albumDownload.hidden != hide) {
+        _albumDownload.hidden = hide;
+        [self setNeedsLayout];
+    }
+}
+
 - (void)showCard:(UIView *)card {
     if (_card == card) return;
     [_card removeFromSuperview];
@@ -253,11 +320,32 @@ static BOOL setText(UILabel *label, NSString *text) {
     if (previous) y += kRowAbove;
 
     CGFloat side = SGRActionHeight;
-    CGFloat playWidth = MAX(kPlayWidth, [_play sgr_width]);
-    CGRect play = CGRectMake(round((width - playWidth) / 2), y, playWidth, side);
-    _play.frame = play;
-    _shuffle.frame = CGRectMake(CGRectGetMinX(play) - kRowSpacing - side, y, side, side);
-    _trailing.frame = CGRectMake(CGRectGetMaxX(play) + kRowSpacing, y, side, side);
+    if (_albumControls) {
+        CGFloat playWidth = MIN(MAX(kPlayWidth, [_play sgr_width]), MAX(0, text - side - kRowSpacing));
+        BOOL rtl = self.effectiveUserInterfaceLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft;
+        CGFloat playX = rtl ? kSide : width - kSide - playWidth;
+        _play.frame = CGRectMake(playX, y, playWidth, side);
+        CGFloat groupWidth = MAX(0, text - playWidth - kRowSpacing);
+        _albumControls.frame = CGRectMake(rtl ? CGRectGetMaxX(_play.frame) + kRowSpacing : kSide,
+                                          y, groupWidth, side);
+        CGFloat x = 0;
+        for (UIView *button in @[_shuffle, _albumDownload, _trailing]) {
+            if (button.hidden) continue;
+            button.frame = CGRectMake(x, 0, side, side);
+            x += side + 12;
+        }
+        CGSize size = CGSizeMake(MAX(0, x - 12), side);
+        if (!CGSizeEqualToSize(_albumControls.contentSize, size)) _albumControls.contentSize = size;
+        _albumControls.scrollEnabled = size.width > groupWidth + 0.5;
+        CGFloat limit = MAX(0, size.width - groupWidth);
+        if (_albumControls.contentOffset.x > limit) _albumControls.contentOffset = CGPointMake(limit, 0);
+    } else {
+        CGFloat playWidth = MAX(kPlayWidth, [_play sgr_width]);
+        CGRect play = CGRectMake(round((width - playWidth) / 2), y, playWidth, side);
+        _play.frame = play;
+        _shuffle.frame = CGRectMake(CGRectGetMinX(play) - kRowSpacing - side, y, side, side);
+        _trailing.frame = CGRectMake(CGRectGetMaxX(play) + kRowSpacing, y, side, side);
+    }
     y += side;
 
     if (!_about.hidden) {

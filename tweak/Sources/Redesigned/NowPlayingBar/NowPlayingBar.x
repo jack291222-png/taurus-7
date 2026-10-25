@@ -1,12 +1,12 @@
 #import "Core/SGCore.h"
 #import "Redesigned/Kit/SGRRepaint.h"
 #import "Redesigned/Kit/SGRTokens.h"
+#import "Redesigned/Kit/SGRBridges.h"
 #import "Redesigned/Navbar/Navbar.h"
 #import "Shared/Lyrics/Lyrics.h"
 #import "Shared/Player/NowPlayingExtras.h"
 #import "Shared/Player/PlayerState.h"
 #import "NowPlayingBar.h"
-#import <MediaPlayer/MediaPlayer.h>
 #import <objc/message.h>
 
 static const CGFloat kCardRadius = 24;
@@ -279,13 +279,9 @@ static UIImage *cardCover(void) {
 
 static UIImage *currentCover(void) {
     SPTPlayerState *state = SGPlayerState();
-    NSDictionary *info = MPNowPlayingInfoCenter.defaultCenter.nowPlayingInfo;
-    MPMediaItemArtwork *artwork = info[MPMediaItemPropertyArtwork];
-    if (SGNowPlayingTitlesMatch(info[MPMediaItemPropertyTitle], state.track.trackTitle)
-        && [artwork isKindOfClass:MPMediaItemArtwork.class]) {
-        UIImage *image = [artwork imageWithSize:CGSizeMake(600, 600)];
-        if (image) return image;
-    }
+    NSString *artworkTrack = nil;
+    UIImage *artwork = SGRNowPlayingArtwork(&artworkTrack, NULL);
+    if (artwork && [artworkTrack isEqualToString:SGURIString(state.track.URI)]) return artwork;
     return cardCover();
 }
 
@@ -332,21 +328,37 @@ static void openPlayer(void) {
 @interface SGRMiniPlayerWatcher : NSObject <SGPlayerStateObserver>
 @end
 
+static NSUInteger sg_miniRefreshGeneration, sg_miniTrackGeneration;
+static NSString *sg_miniTrackURI;
+
 @implementation SGRMiniPlayerWatcher
 - (void)playerStateDidChange:(SPTPlayerState *)state {
+    NSUInteger refreshGeneration = ++sg_miniRefreshGeneration;
+    NSString *trackURI = SGURIString(state.track.URI);
+    BOOL trackChanged = ![trackURI isEqualToString:sg_miniTrackURI];
+    if (trackChanged) {
+        sg_miniTrackURI = [trackURI copy];
+        sg_miniTrackGeneration++;
+    }
+    NSUInteger generation = sg_miniTrackGeneration;
     dispatch_async(dispatch_get_main_queue(), ^{
+        if (refreshGeneration != sg_miniRefreshGeneration) return;
         // The queue ended with the bar minimized: the pill has nothing left to show, so the whole bar comes back.
         if (!hasTrack() && SGRTabBarMinimized()) SGRSetTabBarMinimized(NO, YES);
         refreshMini();
-        // A new track's cover reaches the card a little after the state does.
-        for (NSNumber *delay in @[@0.3, @1, @2.5]) {
-            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{ refreshMini(); });
-        }
     });
+    if (!trackChanged) return;
+    // A new track's cover reaches the card a little after the state does.
+    for (NSNumber *delay in @[@0.3, @1, @2.5]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(delay.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if (generation == sg_miniTrackGeneration) refreshMini();
+        });
+    }
 }
 @end
 
 static SGRMiniPlayerWatcher *sg_miniWatcher;
+static id sg_artworkObserver;
 
 static void applyDock(BOOL animated) {
     UIView *view = sg_container.viewIfLoaded;
@@ -462,6 +474,13 @@ static void styleNowPlayingBar(UIViewController *container) {
     %init;
     sg_miniWatcher = [SGRMiniPlayerWatcher new];
     SGAddPlayerStateObserver(sg_miniWatcher);
+    sg_artworkObserver = [NSNotificationCenter.defaultCenter addObserverForName:SGRNowPlayingArtworkDidChangeNotification
+                                                                          object:nil
+                                                                           queue:NSOperationQueue.mainQueue
+                                                                      usingBlock:^(NSNotification *note) {
+        NSString *trackURI = SGURIString(SGPlayerState().track.URI);
+        if ([note.userInfo[@"trackURI"] isEqualToString:trackURI]) refreshMini();
+    }];
     SGRequireClasses(@[
         @"_TtC18NowPlaying_BarImpl36NowPlayingBarContainerViewController",
         @"_TtC18NowPlaying_BarImpl27NowPlayingBarViewController",

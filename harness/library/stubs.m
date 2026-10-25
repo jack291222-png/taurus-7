@@ -1,5 +1,6 @@
 // What the harness does not compile: the accent hook (SGRAccent.x) and the repaint hook (SGRRepaint.x).
 #import <UIKit/UIKit.h>
+#import "Shared/Player/PlayerState.h"
 UIColor *SGRAccentColor(void) { return nil; }
 __weak UIView *sgr_nowPlayingRoot = nil;
 __weak UIView *sgr_nowPlayingCard = nil;
@@ -12,3 +13,4 @@ __weak UIView *sgr_artistRoot = nil;
 // Redesigned/Kit/SGRBridges.x: SGRField.m asks whether the player is opening or closing for its moving field.
 BOOL SGRPlayerIsTransitioning(void) { return NO; }
 void SGRObservePlayerTransition(id owner, void (^began)(id owner), void (^ended)(id owner)) {}
+void SGAddPlayerStateObserver(id<SGPlayerStateObserver> observer) {}

@@ -1,9 +1,10 @@
 #import <UIKit/UIKit.h>
+#import "Shared/Player/PlayerState.h"
 
 extern const CGFloat SGRHeaderInfoBottom;     // 14, under the content
 extern const CGFloat SGRHeaderInfoTitleRise;  // 56, of the content over the picture
 
-@interface SGRHeaderInfo : UIView
+@interface SGRHeaderInfo : UIView <SGPlayerStateObserver>
 // YES when anything shown changed. nil or empty hides that line.
 - (BOOL)showTitle:(NSString *)title creator:(NSString *)creator length:(NSString *)length about:(NSString *)about;
 // A title image such as an artist's logo; nil restores the spoken title.
@@ -18,6 +19,9 @@ extern const CGFloat SGRHeaderInfoTitleRise;  // 56, of the content over the pic
 - (void)trailingStateChanged;
 - (void)showShuffle:(UIView *)shuffle play:(UIView *)play trailing:(UIView *)trailing
    trailingFallback:(UIImage *)trailingFallback playColor:(UIColor *)playColor;
+// Album and playlist action row: shuffle, download and add share a scrollable group beside Play.
+- (void)showAlbumShuffle:(UIView *)shuffle play:(UIView *)play download:(UIView *)download
+                    add:(UIView *)add playColor:(UIColor *)playColor;
 // The height the content wants at `width`, from the top of the title to the bottom of the description.
 - (CGFloat)contentHeightForWidth:(CGFloat)width;
 @end

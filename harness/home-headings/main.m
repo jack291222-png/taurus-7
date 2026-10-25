@@ -111,7 +111,7 @@ static BOOL visible(UIView *view) {
     sg_shortcutsPath = [NSIndexPath indexPathForItem:0 inSection:0];
     sg_topPath = [NSIndexPath indexPathForItem:2 inSection:0];
     NSDictionary *frames = swappedFrames(layout);
-    if (!SGRHomeGlassStyle()) {
+    if (!SGRHomeGlassStyle() || !large) {
         NSCAssert(frames == nil, @"Home page off must retain the first shelf heading with Top picks on");
     } else {
         NSCAssert(frames.count == 3, @"Glass Home must keep its promoted shelf layout");
