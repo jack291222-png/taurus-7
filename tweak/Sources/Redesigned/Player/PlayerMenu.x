@@ -493,15 +493,22 @@ static SGRPlayerMenuItem *speedAndPitchItem(void) {
     return item;
 }
 
-static SGRPlayerMenuItem *canvasLyricsItem(SGRPlayerMenuTakeover *takeover) {
+static SGRPlayerMenuItem *lockScreenStyleItem(SGRPlayerMenuTakeover *takeover) {
     __weak SGRPlayerMenuTakeover *weak = takeover;
-    SGRPlayerMenuItem *item = [SGRPlayerMenuItem itemWithTitle:@"Canvas Lyrics" image:symbol(@"star") action:^{
-        BOOL enabled = !SGLockScreenCanvasLyricsEnabled();
-        SGLockScreenCanvasLyricsSetEnabled(enabled);
-        [weak.card setSubtitle:enabled ? @"On" : @"Off" forKey:@"spotifyglass.canvasLyrics"];
-    }];
-    item.key = @"spotifyglass.canvasLyrics";
-    item.subtitle = SGLockScreenCanvasLyricsEnabled() ? @"On" : @"Off";
+    SGRPlayerMenuItem *item = [SGRPlayerMenuItem itemWithTitle:@"Lock Screen Style" image:symbol(@"star") action:nil];
+    item.key = @"spotifyglass.lockScreenStyle";
+    NSString *current = SGLockScreenCurrentStarView() ?: @"default";
+    item.subtitle = SGLockScreenStarViewName(current);
+    NSMutableArray<SGRPlayerMenuItem *> *choices = [NSMutableArray array];
+    for (NSString *view in SGLockScreenStarViewOrder()) {
+        SGRPlayerMenuItem *choice = [SGRPlayerMenuItem itemWithTitle:SGLockScreenStarViewName(view) image:nil action:^{
+            SGLockScreenStarSelectView(view);
+            [weak.card setSubtitle:SGLockScreenStarViewName(view) forKey:@"spotifyglass.lockScreenStyle"];
+        }];
+        choice.key = [@"spotifyglass.lockScreenStyle." stringByAppendingString:view];
+        [choices addObject:choice];
+    }
+    item.children = choices;
     return item;
 }
 
@@ -552,7 +559,7 @@ static NSArray<SGRPlayerMenuSection *> *sectionsFor(SGRPlayerMenuTakeover *t, NS
         [tiles removeLastObject];
     }
     [main addObject:speedAndPitchItem()];
-    [main addObject:canvasLyricsItem(t)];
+    [main addObject:lockScreenStyleItem(t)];
     [main addObject:backgroundStyleItem(t)];
     if (more.count == 1) {
         [feedback addObject:more.firstObject];

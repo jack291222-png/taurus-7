@@ -26,8 +26,12 @@ NSArray<SGModRow *> *SGRAppearanceRows(void) {
     SGModRow *profile = SGSwitchRow(@"Show profile photo", @"Show the profile photo at the top right",
                                     SGRKeyNavbarProfilePhoto);
     profile.changed = ^(BOOL on) { SGRHomeProfilePhotoPreferenceChanged(); };
+    SGModRow *gradient = SGSwitchRow(@"Bottom navbar gradient", @"Show the black fade behind the bottom of the glass tab bar",
+                                     SGRKeyNavbarBottomGradient);
+    gradient.changed = ^(BOOL on) { SGRSetTabBarGradientVisible(on); };
     return @[
         profile,
+        gradient,
         SGWithSymbol(SGStatActionRow(@"Accent colour", nil, ^NSString *{ return SGRAccentLabel(); }, ^{ chooseAccent(); }), @"paintpalette"),
     ];
 }

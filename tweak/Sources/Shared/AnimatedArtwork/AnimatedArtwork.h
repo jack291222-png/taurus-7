@@ -15,6 +15,7 @@
 #define SGKeyLockScreenStarViews @"spotifyglass.lockscreen.starViews"
 #define SGKeyLockScreenExclusiveLyrics @"spotifyglass.lockscreen.exclusiveLyrics"
 #define SGKeyLockScreenCoverArtworkScale @"spotifyglass.lockscreen.coverArtworkScale"
+#define SGNotificationLockScreenEffectiveArtworkChanged @"spotifyglass.lockscreen.effectiveArtworkChanged"
 typedef NS_ENUM(NSInteger, SGLockArtwork) {
     SGLockArtworkOff = 0,
     SGLockArtworkMotion,   // the Canvas, else Apple Music's animated cover (LockScreenMotion.x)
@@ -25,12 +26,15 @@ typedef NS_ENUM(NSInteger, SGLockArtwork) {
 // Off below iOS 26, which has no animated artwork on the lock screen.
 SGLockArtwork SGLockScreenArtwork(void);
 NSArray<NSString *> *SGLockScreenStarViewOrder(void);
-NSString *SGLockScreenStarCurrentView(void);
+NSString *SGLockScreenCurrentStarView(void);
+NSString *SGLockScreenStarViewName(NSString *view);
+void SGLockScreenStarSelectView(NSString *view);
+void SGLockScreenStarAdvanceView(void);
+SGLockArtwork SGLockScreenSkipUnavailableMotion(void);
 // With star switching on, an active view disabled by the user moves to the first enabled view.
 void SGLockScreenStarEnsureView(void);
-void SGLockScreenStarAdvanceView(void);
-// Fill for missing moving artwork, without changing the saved choice or the star-view list.
-NSString *SGLockScreenMotionFallbackView(void);
+SGLockArtwork SGLockScreenEffectiveArtwork(void);
+void SGLockScreenSetEffectiveArtwork(SGLockArtwork artwork);
 CGFloat SGLockScreenCoverArtworkScale(void);
 BOOL SGLockScreenCanvasLyricsEnabled(void);
 void SGLockScreenCanvasLyricsSetEnabled(BOOL enabled);

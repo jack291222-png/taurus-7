@@ -11,3 +11,8 @@
 // keep the keys that are on, in the order they are asked.
 UIViewController *SGSourcesPageMake(NSString *title, NSString *note, NSArray<SGSource *> *all,
                                     NSArray<NSString *> *(^order)(void), void (^setOrder)(NSArray<NSString *> *keys));
+// For an ordered choice that must keep at least this many sources enabled.
+UIViewController *SGSourcesPageMakeWithMinimumOnCount(NSString *title, NSString *note, NSArray<SGSource *> *all,
+                                                      NSArray<NSString *> *(^order)(void),
+                                                      void (^setOrder)(NSArray<NSString *> *keys),
+                                                      NSUInteger minimumOnCount);

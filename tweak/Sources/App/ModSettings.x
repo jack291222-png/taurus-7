@@ -107,9 +107,9 @@ static UIColor *SGRainbowTextColor(CGFloat width, CGFloat height, double phase) 
 - (void)viewWillAppear:(BOOL)animated {
     [super viewWillAppear:animated];
     NSArray<NSString *> *bylines = @[
-        @"by natsha, samj, and arnaupq.", @"by natsha, arnaupq, and samj.",
-        @"by samj, natsha, and arnaupq.", @"by samj, arnaupq, and natsha.",
-        @"by arnaupq, natsha, and samj.", @"by arnaupq, samj, and natsha.",
+        @"by natasha, samj, and arnaupq.", @"by natasha, arnaupq, and samj.",
+        @"by samj, natasha, and arnaupq.", @"by samj, arnaupq, and natasha.",
+        @"by arnaupq, natasha, and samj.", @"by arnaupq, samj, and natasha.",
     ];
     _mastheadByline.text = bylines[arc4random_uniform((uint32_t)bylines.count)];
     [self startRainbow];
@@ -425,6 +425,17 @@ static UIColor *planBadgeColor(void) {
 }
 
 static __weak UIView *sg_drawerRoot;
+static char kPlanBadgeLabelKey;
+
+static NSString *sidebarBadgeText(void) {
+    NSString *text = [NSUserDefaults.standardUserDefaults stringForKey:SGKeySidebarBadgeText];
+    return text.length ? text : @"Taurus";
+}
+
+static BOOL isSidebarBadgeText(NSString *text) {
+    return [text isEqualToString:@"Spotify Free"] || [text isEqualToString:@"Taurine"]
+        || [text isEqualToString:@"Taurus"] || [text isEqualToString:sidebarBadgeText()];
+}
 
 static BOOL isDrawerBadgeLabel(UILabel *label) {
     for (UIView *view = label; view; view = view.superview) {
@@ -434,16 +445,22 @@ static BOOL isDrawerBadgeLabel(UILabel *label) {
     return NO;
 }
 
+static BOOL isPlanBadgeLabel(UILabel *label) {
+    return objc_getAssociatedObject(label, &kPlanBadgeLabelKey) != nil || isSidebarBadgeText(label.text);
+}
+
 static void stylePlanBadgeLabel(UILabel *label) {
     UIColor *color = planBadgeColor();
     CGFloat red = 0, green = 0, blue = 0, alpha = 0;
     [color getRed:&red green:&green blue:&blue alpha:&alpha];
-    if (![label.text isEqualToString:@"Taurus"]) label.text = @"Taurus";
+    NSString *text = sidebarBadgeText();
+    if (![label.text isEqualToString:text]) label.text = text;
     label.textColor = (0.2126 * red + 0.7152 * green + 0.0722 * blue) > 0.55 ? UIColor.blackColor : UIColor.whiteColor;
     label.backgroundColor = color;
     label.layer.backgroundColor = color.CGColor;
-    label.layer.cornerRadius = 0;
-    label.clipsToBounds = NO;
+    label.layer.cornerRadius = MIN(8, CGRectGetHeight(label.bounds) / 2);
+    label.clipsToBounds = YES;
+    objc_setAssociatedObject(label, &kPlanBadgeLabelKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 
     CGRect labelBounds = label.bounds;
     for (UIView *badge = label.superview; badge && badge != sg_drawerRoot; badge = badge.superview) {
@@ -452,8 +469,8 @@ static void stylePlanBadgeLabel(UILabel *label) {
             badge.bounds.size.height > CGRectGetHeight(labelFrame) + 32) break;
         badge.backgroundColor = color;
         badge.layer.backgroundColor = color.CGColor;
-        badge.layer.cornerRadius = 0;
-        badge.layer.masksToBounds = NO;
+        badge.layer.cornerRadius = MIN(8, CGRectGetHeight(badge.bounds) / 2);
+        badge.layer.masksToBounds = YES;
     }
 }
 
@@ -461,8 +478,7 @@ static void updatePlanBadge(UIView *root) {
     SGForEachView(root, ^(UIView *view) {
         if (![view isKindOfClass:UILabel.class]) return;
         UILabel *label = (UILabel *)view;
-        if (![label.text isEqualToString:@"Spotify Free"] && ![label.text isEqualToString:@"Taurine"] &&
-            ![label.text isEqualToString:@"Taurus"]) return;
+        if (!isPlanBadgeLabel(label)) return;
         stylePlanBadgeLabel(label);
     });
 }
@@ -473,7 +489,6 @@ static void updatePlanBadge(UIView *root) {
     if (![text isEqualToString:@"Spotify Free"] && ![text isEqualToString:@"Taurine"] &&
         ![text isEqualToString:@"Taurus"]) return;
     if (!isDrawerBadgeLabel(self)) return;
-    if (![text isEqualToString:@"Taurus"]) %orig(@"Taurus");
     stylePlanBadgeLabel(self);
 }
 %end
@@ -508,6 +523,10 @@ static void updatePlanBadge(UIView *root) {
 
 %ctor {
     %init;
+    [NSNotificationCenter.defaultCenter addObserverForName:SGSidebarBadgeTextDidChangeNotification object:nil queue:NSOperationQueue.mainQueue
+                                                usingBlock:^(NSNotification *note) {
+        if (sg_drawerRoot) updatePlanBadge(sg_drawerRoot);
+    }];
     SGRequireClasses(@[@"_TtC21Settings_PlatformImpl26SettingsListViewController", @"_TtC23SideDrawer_ListPageImpl18ListViewController"]);
     SGRegisterPages();
     SGCheckSigningOnce();

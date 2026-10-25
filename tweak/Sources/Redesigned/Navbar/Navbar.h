@@ -5,6 +5,7 @@
 #define SGRKeyNavbarHideLabels @"spotifyglass.redesign.navbar.hideLabels"
 #define SGRKeyNavbarAppleIcons @"spotifyglass.redesign.navbar.appleIcons"
 #define SGRKeyNavbarProfilePhoto @"spotifyglass.redesign.navbar.profilePhoto"
+#define SGRKeyNavbarBottomGradient @"spotifyglass.redesign.navbar.bottomGradient"
 // Whether a page's scroll minimizes the glass bar: its first and last tab stay as two round buttons and the now
 // playing card moves between them. On unless set; read once at launch.
 #define SGRKeyNavbarMinimize @"spotifyglass.redesign.navbar.minimize"
@@ -30,6 +31,7 @@ void SGRComposeTabBar(UIView *tabBar);
 void SGRLogTabBarRow(UIView *tabBar);
 // Lays the bar out again after the Navbar page changes something, so it does not wait for a touch.
 void SGRRefreshTabBar(void);
+void SGRSetTabBarGradientVisible(BOOL visible);
 void SGRNavbarSetProfilePhotoVisible(UIView *face);
 NSString *SGRNavbarDefaultIcon(NSString *stockID);
 BOOL SGRNavbarEntryHasCustomIcon(NSDictionary *entry);

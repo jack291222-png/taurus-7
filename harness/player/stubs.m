@@ -72,6 +72,25 @@ void SGRHarnessSetTrack(NSString *uri, NSString *imageURI, BOOL paused) {
 
 #pragma mark - Redesigned/Player/PlayerControls.x
 
+static NSString *const kHarnessLyricsBlurByTrackKey = @"spotifyglass.redesign.player.lyricsBlurByTrack";
+
+BOOL SGRPlayerMotionLyricsBlurEnabled(void) {
+    NSString *track = SGURIString(SGPlayerState().track.URI);
+    NSNumber *enabled = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kHarnessLyricsBlurByTrackKey][track];
+    return !enabled || enabled.boolValue;
+}
+
+void SGRPlayerMotionSetLyricsBlurEnabled(BOOL enabled) {
+    NSString *track = SGURIString(SGPlayerState().track.URI);
+    if (!track.length) return;
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    NSMutableDictionary *preferences = [[defaults dictionaryForKey:kHarnessLyricsBlurByTrackKey] mutableCopy] ?: [NSMutableDictionary dictionary];
+    if (enabled) [preferences removeObjectForKey:track];
+    else preferences[track] = @NO;
+    [defaults setObject:preferences forKey:kHarnessLyricsBlurByTrackKey];
+    SGRPlayerLyricsBlurControlRefresh();
+}
+
 void SGRPlayerVanish(UIView *view) {
     view.alpha = 0;
     view.userInteractionEnabled = NO;

@@ -8,6 +8,10 @@ static NSString *const kLikeDislikeFlag = @"ios-feature-lockscreen.like_dislike_
 static MPFeedbackCommand *sg_like;
 static id sg_target;
 
+static NSString *currentStarView(void) {
+    return SGLockScreenCurrentStarView();
+}
+
 static BOOL starOn(void) {
     return SGHidden(SGKeyLockScreenStar) && SGLockScreenStarViewOrder().count > 1;
 }
@@ -23,7 +27,7 @@ static MPRemoteCommandHandlerStatus tapped(void) {
 static void arm(void) {
     SGLockScreenStarEnsureView();
     static BOOL lastOn, lastActive;
-    BOOL on = starOn(), active = on && [SGLockScreenStarCurrentView() isEqualToString:@"canvasLyrics"];
+    BOOL on = starOn(), active = on && [currentStarView() isEqualToString:@"lyrics"];
     if (sg_like && !sg_like.enabled) sg_like.enabled = YES;
     if (on == lastOn && active == lastActive && on == (sg_like != nil)) return;
     lastOn = on;

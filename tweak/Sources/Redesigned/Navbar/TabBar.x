@@ -541,6 +541,7 @@ static const CGFloat kFadeRise = 112;
 static const NSUInteger kFadeStops = 7;
 
 @interface SGRTabBarHost : UIView
+- (void)setFadeVisible:(BOOL)visible;
 @end
 
 @implementation SGRTabBarHost {
@@ -561,12 +562,18 @@ static const NSUInteger kFadeStops = 7;
     }
     _fade.colors = colors;
     _fade.locations = locations;
+    _fade.hidden = !SGFlag(SGRKeyNavbarBottomGradient, YES);
     [self.layer insertSublayer:_fade atIndex:0];
     return self;
 }
 
+- (void)setFadeVisible:(BOOL)visible {
+    _fade.hidden = !visible;
+}
+
 - (void)layoutSubviews {
     [super layoutSubviews];
+    _fade.hidden = !SGFlag(SGRKeyNavbarBottomGradient, YES);
     CGRect bounds = self.bounds;
     CGRect fade = CGRectMake(0, -kFadeRise, bounds.size.width, bounds.size.height + kFadeRise);
     if (!CGRectEqualToRect(_fade.frame, fade)) _fade.frame = fade;
@@ -584,6 +591,11 @@ static const NSUInteger kFadeStops = 7;
     return sg_minimized && hit == self ? nil : hit;
 }
 @end
+
+void SGRSetTabBarGradientVisible(BOOL visible) {
+    UIView *host = objc_getAssociatedObject(sg_stockBar, &kHostKey);
+    if ([host isKindOfClass:SGRTabBarHost.class]) [(SGRTabBarHost *)host setFadeVisible:visible];
+}
 
 @interface SGRHomeHold : UILongPressGestureRecognizer
 @end

@@ -28,6 +28,36 @@
 #import "Redesigned/Kit/SGRAccent.h"
 
 NSString *const SGRedesignedUIInfo = @"Taurus's redesigned look, leaning towards Apple Music's style. It is not compatible with the legacy look's settings.\n\nThe legacy look gives you more freedom, yet still looks like Spotify.";
+NSNotificationName const SGSidebarBadgeTextDidChangeNotification = @"spotifyglass.sidebarBadgeTextDidChange";
+
+static NSString *sidebarBadgeText(void) {
+    NSString *text = [NSUserDefaults.standardUserDefaults stringForKey:SGKeySidebarBadgeText];
+    return text.length ? text : @"Taurus";
+}
+
+static SGModRow *sidebarBadgeTextRow(void) {
+    SGModRow *row = SGStatActionRow(@"Sidebar badge text", @"Change the text shown in Spotify's sidebar badge",
+        ^NSString *{ return sidebarBadgeText(); }, ^{
+            UIViewController *top = SGTopController();
+            UIAlertController *alert = [UIAlertController alertControllerWithTitle:@"Sidebar badge text"
+                message:@"Leave the field empty to use Taurus." preferredStyle:UIAlertControllerStyleAlert];
+            [alert addTextFieldWithConfigurationHandler:^(UITextField *field) {
+                field.text = sidebarBadgeText();
+                field.clearButtonMode = UITextFieldViewModeWhileEditing;
+                field.returnKeyType = UIReturnKeyDone;
+            }];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Cancel" style:UIAlertActionStyleCancel handler:nil]];
+            [alert addAction:[UIAlertAction actionWithTitle:@"Save" style:UIAlertActionStyleDefault handler:^(UIAlertAction *action) {
+                NSString *text = [alert.textFields.firstObject.text stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
+                if (text.length) [NSUserDefaults.standardUserDefaults setObject:text forKey:SGKeySidebarBadgeText];
+                else [NSUserDefaults.standardUserDefaults removeObjectForKey:SGKeySidebarBadgeText];
+                [NSNotificationCenter.defaultCenter postNotificationName:SGSidebarBadgeTextDidChangeNotification object:nil];
+            }]];
+            [top presentViewController:alert animated:YES completion:nil];
+        });
+    row.refreshOn = SGSidebarBadgeTextDidChangeNotification;
+    return SGWithSymbol(row, @"tag");
+}
 
 void SGSetRedesignedUI(BOOL on) {
     SGSetEnabled(SGKeyRedesign, on);
@@ -76,7 +106,8 @@ UIViewController *SGAppearanceSettingsPage(void) {
         }
         [rows addObjectsFromArray:SGAppFontRows()];
     }
-    SGModSection *section = SGNotedSection(nil, rows, @"Changes apply after you restart Spotify.");
+    [rows addObject:sidebarBadgeTextRow()];
+    SGModSection *section = SGNotedSection(nil, rows, @"Some changes apply after you restart Spotify.");
     return [[SGModPage alloc] initWithTitle:@"Appearance" intro:nil sections:@[section] footer:nil];
 }
 

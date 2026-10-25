@@ -4,7 +4,7 @@
 //
 //     Speed, Pitch & Reverb   opens the sliders in a popover from the ⋯ (SGPlayerMenuSpeedPitch): speed,
 //                             pitch, reverb and Pitch follows speed, as on Spotify's sheet (issue #14)
-//     Canvas Lyrics           toggles synced lyrics over the lock screen's moving artwork
+//     Lock Screen Style       chooses the lock screen's current artwork or Lyrics
 //     Background Style        the six backgrounds offered in Player settings
 //
 // The item says under its name what is not as Spotify plays it, so the menu reads as a settings summary.
@@ -68,23 +68,31 @@ static UIMenu *backgroundStyleMenu(void) {
                         children:choices];
 }
 
-static UIAction *canvasLyricsMenu(void) {
-    BOOL enabled = SGLockScreenCanvasLyricsEnabled();
-    UIAction *action = [UIAction actionWithTitle:@"Canvas Lyrics"
-                                           image:symbol(@"star")
-                                      identifier:nil
-                                         handler:^(UIAction *action) {
-        SGLockScreenCanvasLyricsSetEnabled(!SGLockScreenCanvasLyricsEnabled());
-    }];
-    action.state = enabled ? UIMenuElementStateOn : UIMenuElementStateOff;
-    return action;
+static UIMenu *lockScreenStyleMenu(void) {
+    NSString *current = SGLockScreenCurrentStarView();
+    NSMutableArray<UIMenuElement *> *choices = [NSMutableArray array];
+    for (NSString *view in SGLockScreenStarViewOrder()) {
+        UIAction *choice = [UIAction actionWithTitle:SGLockScreenStarViewName(view)
+                                               image:nil
+                                          identifier:nil
+                                             handler:^(UIAction *action) {
+            SGLockScreenStarSelectView(view);
+        }];
+        choice.state = [view isEqualToString:current] ? UIMenuElementStateOn : UIMenuElementStateOff;
+        [choices addObject:choice];
+    }
+    return [UIMenu menuWithTitle:@"Lock Screen Style"
+                           image:symbol(@"star")
+                      identifier:nil
+                         options:UIMenuOptionsSingleSelection
+                        children:choices];
 }
 
 static NSArray<UIMenuElement *> *playerItems(void) {
     NSMutableArray<UIMenuElement *> *items = [NSMutableArray array];
     UIAction *sound = soundMenu();
     if (sound) [items addObject:sound];
-    [items addObject:canvasLyricsMenu()];
+    [items addObject:lockScreenStyleMenu()];
     [items addObject:backgroundStyleMenu()];
     return items;
 }

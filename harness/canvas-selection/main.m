@@ -8,69 +8,68 @@ void SGLogMessage(NSString *message) {}
 static void require(BOOL condition, NSString *message) {
     if (!condition) { fprintf(stderr, "FAIL: %s\n", message.UTF8String); exit(1); }
 }
+
 static void setViews(NSArray *order, SGLockArtwork style, BOOL lyrics) {
     [NSUserDefaults.standardUserDefaults setObject:order forKey:SGKeyLockScreenStarViews];
     SGSetInt(SGKeyFullScreenArtwork, style);
     SGLockScreenCanvasLyricsSetEnabled(lyrics);
 }
+
 int main(void) {
     @autoreleasepool {
         NSUserDefaults *store = NSUserDefaults.standardUserDefaults;
         SGSetEnabled(SGKeyLockScreenStar, YES);
         SGSetEnabled(SGKeyLockScreenLyrics, NO);
         [store removeObjectForKey:@"spotifyglass.lockscreen.starViews.migrated"];
-        setViews(@[@"canvas"], SGLockArtworkFill, NO);
-        require([SGLockScreenStarViewOrder() isEqualToArray:@[@"canvas"]], @"Canvas-only order must not enable other styles");
+
+        setViews(@[@"canvas", @"fill", @"colorful", @"default"], SGLockArtworkMotion, NO);
         SGLockScreenStarEnsureView();
-        require(SGLockScreenArtwork() == SGLockArtworkMotion && !SGLockScreenCanvasLyricsEnabled(), @"Canvas-only must replace a disabled Fill choice");
-        for (NSUInteger track = 0; track < 5; track++) {
-            require([SGLockScreenMotionFallbackView() isEqual:@"fill"], @"Missing Canvas must use Fill without changing the selected style");
-            require([SGLockScreenStarViewOrder() isEqualToArray:@[@"canvas"]], @"Fill fallback must not enable Fill in the star cycle");
-            require(SGLockScreenArtwork() == SGLockArtworkMotion, @"A missing Canvas must retain the saved choice for the next track");
-        }
-        SGLockScreenStarAdvanceView();
-        require([SGLockScreenStarCurrentView() isEqual:@"canvas"], @"Single-choice cycling must stay on Canvas");
-        NSArray *keys = @[@"canvas", @"canvasLyrics", @"fill", @"colorful", @"default"];
-        NSArray *styles = @[@(SGLockArtworkMotion), @(SGLockArtworkMotion), @(SGLockArtworkFill), @(SGLockArtworkEverySong), @(SGLockArtworkOff)];
+        require([SGLockScreenCurrentStarView() isEqual:@"canvas"], @"Canvas is the configured first style");
+        require(SGLockScreenSkipUnavailableMotion() == SGLockArtworkFill, @"Missing Canvas must use the next enabled style");
+        require(SGLockScreenEffectiveArtwork() == SGLockArtworkFill, @"Fallback style must be applied to this track");
+        require(SGLockScreenArtwork() == SGLockArtworkMotion, @"Fallback must not overwrite the configured style");
+        require([SGLockScreenCurrentStarView() isEqual:@"canvas"], @"Fallback must not move the selected style");
+        require([SGLockScreenStarViewOrder() isEqualToArray:@[@"canvas", @"fill", @"colorful", @"default"]],
+                @"Fallback must not change the hierarchy");
+
+        SGLockScreenSetEffectiveArtwork(SGLockScreenArtwork());
+        require(SGLockScreenEffectiveArtwork() == SGLockArtworkMotion, @"A new track must retry the configured Canvas style");
+        require(SGLockScreenSkipUnavailableMotion() == SGLockArtworkFill, @"Canvas fallback must follow the configured order again");
+
+        setViews(@[@"fill", @"canvas", @"default"], SGLockArtworkMotion, NO);
+        SGSetEnabled(SGKeyLockScreenStar, NO);
+        SGLockScreenStarEnsureView();
+        require(SGLockScreenArtwork() == SGLockArtworkFill, @"When Canvas is not first, use the first configured style");
+        require(SGLockScreenEffectiveArtwork() == SGLockArtworkFill, @"Non-Canvas first style must bypass Canvas lookup");
+
+        SGSetEnabled(SGKeyLockScreenStar, YES);
+        setViews(@[@"canvas", @"lyrics", @"fill", @"colorful", @"default"], SGLockArtworkMotion, NO);
+        SGLockScreenStarEnsureView();
+        require(SGLockScreenSkipUnavailableMotion() == SGLockArtworkLyrics, @"Lyrics must be the next fallback when ordered after Canvas");
+        require(SGLockScreenEffectiveArtwork() == SGLockArtworkLyrics, @"Lyrics fallback must activate the track-local lyrics style");
+        SGLockScreenSetEffectiveArtwork(SGLockScreenArtwork());
+        require(SGLockScreenEffectiveArtwork() == SGLockArtworkMotion, @"Canvas must be retried after a lyrics fallback on the previous track");
+
+        NSArray *keys = @[@"canvas", @"lyrics", @"fill", @"colorful", @"default"];
+        NSArray *styles = @[@(SGLockArtworkMotion), @(SGLockArtworkLyrics), @(SGLockArtworkFill),
+                            @(SGLockArtworkEverySong), @(SGLockArtworkOff)];
         for (NSUInteger i = 0; i < keys.count; i++) {
             setViews(@[keys[i]], SGLockArtworkFill, NO);
             SGLockScreenStarEnsureView();
-            require(SGLockScreenArtwork() == [styles[i] integerValue], @"Each single enabled view must select its own style");
-            require([SGLockScreenStarCurrentView() isEqual:keys[i]], @"Single-choice mode must retain its lyrics state");
+            require(SGLockScreenArtwork() == [styles[i] integerValue], @"Each single enabled view must select its style");
+            require([SGLockScreenCurrentStarView() isEqual:keys[i]], @"Single-choice mode must report its selected style");
         }
-        setViews(@[@"canvas", @"fill", @"colorful", @"default"], SGLockArtworkMotion, NO);
-        require([SGLockScreenMotionFallbackView() isEqual:@"fill"], @"Moving artwork must use Fill as its fallback");
-        require(SGLockScreenArtwork() == SGLockArtworkMotion, @"Fallback must not persist Fill");
-        SGLockScreenStarAdvanceView();
-        require([SGLockScreenStarCurrentView() isEqual:@"fill"], @"The explicit star action must still switch styles");
-        SGLockScreenStarAdvanceView();
-        require([SGLockScreenStarCurrentView() isEqual:@"colorful"], @"The explicit star action must follow configured order");
-        setViews(@[@"canvas", @"default", @"fill"], SGLockArtworkMotion, NO);
-        require([SGLockScreenMotionFallbackView() isEqual:@"fill"], @"Moving artwork must fall back to Fill independently of the star cycle order");
-        setViews(@[@"canvas", @"canvasLyrics"], SGLockArtworkMotion, NO);
-        require([SGLockScreenMotionFallbackView() isEqual:@"fill"], @"Unavailable motion views must fall back to Fill");
-        setViews(@[@"canvasLyrics"], SGLockArtworkMotion, YES);
-        require(SGLockScreenMotionFallbackView() == nil, @"Canvas lyrics must retain its own lyric artwork handling");
-        setViews(@[], SGLockArtworkFill, NO);
-        SGLockScreenStarEnsureView();
-        require(SGLockScreenArtwork() == SGLockArtworkFill, @"An empty cycle must leave manual artwork selection intact");
-        SGSetEnabled(SGKeyLockScreenStar, NO);
-        setViews(@[@"canvas"], SGLockArtworkFill, NO);
-        SGLockScreenStarEnsureView();
-        require(SGLockScreenArtwork() == SGLockArtworkFill, @"Disabling the star must keep manual mode selection");
-        require(SGLockScreenMotionFallbackView() == nil, @"Manual Fill mode must not request a moving-artwork fallback");
-        setViews(@[@"canvas"], SGLockArtworkMotion, NO);
-        require([SGLockScreenMotionFallbackView() isEqual:@"fill"], @"Moving artwork must fall back to Fill with the star cycle off");
-        SGSetEnabled(SGKeyLockScreenStar, YES);
-        setViews(@[@"canvas"], SGLockArtworkLyrics, NO);
-        SGLockScreenStarEnsureView();
-        require(SGLockScreenArtwork() == SGLockArtworkLyrics, @"Dedicated lyrics mode must remain independent");
-        require(SGLockScreenMotionFallbackView() == nil, @"Dedicated lyrics must retain its own artwork handling");
+
+        setViews(@[@"canvas", @"canvasLyrics", @"fill"], SGLockArtworkMotion, NO);
+        require([SGLockScreenStarViewOrder() isEqualToArray:@[@"canvas", @"lyrics", @"fill"]],
+                @"Legacy Canvas-lyrics style keys must migrate to Lyrics");
         setViews(@[@"canvas", @"bad", @"canvas", @"fill"], SGLockArtworkMotion, NO);
         require([SGLockScreenStarViewOrder() isEqualToArray:@[@"canvas", @"fill"]], @"Unknown and repeated views must be removed");
-        [store removeObjectForKey:SGKeyLockScreenStarViews];
-        require(SGLockScreenStarViewOrder().count == 5, @"New users must retain the complete default view list");
-        puts("PASS: automatic Fill fallback, saved Canvas selection, five single-view choices, star cycling and independent lyric modes");
+
+        setViews(@[], SGLockArtworkFill, NO);
+        SGSetEnabled(SGKeyLockScreenStar, NO);
+        require(SGLockScreenArtwork() == SGLockArtworkFill, @"An empty cycle must leave manual artwork selection intact");
+        puts("PASS: ordered track-local fallback, Canvas retry, non-Canvas priority, Lyrics fallback and style migration");
     }
     return 0;
 }

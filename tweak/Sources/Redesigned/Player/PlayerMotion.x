@@ -44,6 +44,7 @@
 #import "Player.h"
 
 NSNotificationName const SGRPlayerBlurOpacityDidChangeNotification = @"spotifyglass.redesign.player.blurOpacityDidChange";
+static NSString *const kLyricsBlurByTrackKey = @"spotifyglass.redesign.player.lyricsBlurByTrack";
 
 // Where the clip starts dissolving into its foot, as a share of its height.
 static const CGFloat kFootFrom = 0.9;
@@ -616,6 +617,35 @@ static BOOL motionAllowed(void) {
     return !SGRReduceMotion() && !NSProcessInfo.processInfo.lowPowerModeEnabled;
 }
 
+static BOOL lyricsBlurEnabledForTrack(NSString *track) {
+    if (!track.length) return YES;
+    // The absent entry is the default-on state; only per-track opt-outs need storing.
+    NSNumber *enabled = [[NSUserDefaults standardUserDefaults] dictionaryForKey:kLyricsBlurByTrackKey][track];
+    return !enabled || enabled.boolValue;
+}
+
+static NSString *currentLyricsBlurTrack(void) {
+    return SGURIString(SGPlayerState().track.URI) ?: sg_track;
+}
+
+BOOL SGRPlayerMotionLyricsBlurEnabled(void) {
+    return lyricsBlurEnabledForTrack(currentLyricsBlurTrack());
+}
+
+void SGRPlayerMotionSetLyricsBlurEnabled(BOOL enabled) {
+    NSString *track = currentLyricsBlurTrack();
+    if (!track.length) {
+        SGLog(@"redesign player: cannot save lyrics blur without a track URI");
+        return;
+    }
+    NSUserDefaults *defaults = NSUserDefaults.standardUserDefaults;
+    NSMutableDictionary *preferences = [[defaults dictionaryForKey:kLyricsBlurByTrackKey] mutableCopy] ?: [NSMutableDictionary dictionary];
+    if (enabled) [preferences removeObjectForKey:track];
+    else preferences[track] = @NO;
+    [defaults setObject:preferences forKey:kLyricsBlurByTrackKey];
+    SGRPlayerMotionLyricsChanged();
+}
+
 // The clip can be seen: in a window, with the app in front.
 static BOOL seen(UIView *view) {
     return view.window && UIApplication.sharedApplication.applicationState == UIApplicationStateActive;
@@ -636,6 +666,7 @@ static void clear(BOOL animated) {
     SGRPlayerVisualiserUpdate();
     if (animated) [old disappear:^{ [old removeFromSuperview]; }];
     else [old removeFromSuperview];
+    SGRPlayerLyricsBlurControlRefresh();
 }
 
 static void show(NSString *track, NSURL *file) {
@@ -659,20 +690,24 @@ static void show(NSString *track, NSURL *file) {
         SGRPlayerVisualiserUpdate();
         layOut();
         holdField();
-        [sg_motion setBlurred:SGRPlayerLyricsOpen() animated:NO];
+        BOOL blurLyrics = SGRPlayerLyricsOpen() && lyricsBlurEnabledForTrack(track);
+        [sg_motion setBlurred:blurLyrics animated:NO];
         BOOL animated = seen(sg_motion);
         [motion appear:animated then:^{
             if (sg_motion == motion) cover(YES);
         }];
         setCoverShown(NO, animated);
+        SGRPlayerLyricsBlurControlRefresh();
         SGLog(@"redesign player: animated artwork %@, %.0fx%.0f", file.lastPathComponent, poster.size.width, poster.size.height);
     });
 }
 
 void SGRPlayerMotionLyricsChanged(void) {
-    [sg_motion setBlurred:SGRPlayerLyricsOpen() animated:sg_motion.window != nil];
+    [sg_motion setBlurred:SGRPlayerLyricsOpen() && lyricsBlurEnabledForTrack(currentLyricsBlurTrack())
+                 animated:sg_motion.window != nil];
     SGRArtworkField *field = SGRPlayerField();
     [field setLyricsBlurred:SGRPlayerLyricsOpen() animated:field.window != nil];
+    SGRPlayerLyricsBlurControlRefresh();
 }
 
 static void videoSurface(id unit, BOOL attached) {
@@ -693,6 +728,9 @@ static void videoSurface(id unit, BOOL attached) {
 static BOOL beginTrack(NSString *track) {
     sg_track = track;
     sg_begun++;
+    BOOL blurLyrics = SGRPlayerLyricsOpen() && lyricsBlurEnabledForTrack(track);
+    [sg_motion setBlurred:blurLyrics animated:sg_motion.window != nil];
+    SGRPlayerLyricsBlurControlRefresh();
     // Read on every track, since the ⋯ menu switches it.
     BOOL wanted = SGRPlayerBackground() == SGRPlayerBackgroundAnimated && !videoShowing() && motionAllowed();
     if (wanted && [track isEqualToString:sg_shown]) return YES;

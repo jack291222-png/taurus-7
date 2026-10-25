@@ -20,8 +20,12 @@ NSArray<SGModRow *> *SGRNowPlayingBarRows(void) {
     SGModRow *roundedArtwork = SGOptionRow(@"Rounded-square album art", @"Use rounded corners instead of a circle",
                                             SGRKeyNowPlayingRoundedArtwork);
     roundedArtwork.changed = ^(BOOL on) { SGRNowPlayingBarRefresh(); };
+    SGModRow *thickProgress = SGOptionRow(@"Thicker progress bar", @"Use a 2 pt line instead of Spotify's original thickness",
+                                           SGRKeyNowPlayingThickProgress);
+    thickProgress.changed = ^(BOOL on) { SGRNowPlayingBarRefresh(); };
     return @[
         roundedArtwork,
+        thickProgress,
         SGFlagRow(@"Mini player transition animations", @"ios-feature-nowplaying.miniplayer_transition_animations"),
     ];
 }

@@ -80,12 +80,14 @@ static void restartRest(void);
 @property (nonatomic, readonly) UIImageView *cover;
 @property (nonatomic, readonly) UIView *stage;       // holds the lines' view alone
 @property (nonatomic, readonly) SGRKaraokeView *lyrics;
+@property (nonatomic, readonly) SGRGlyphButton *blurToggle;
 @end
 
 @implementation SGRPlayerLyricsOverlay {
     UIView *_thumb, *_stage;
     UIImageView *_cover;
     SGRKaraokeView *_lyrics;
+    SGRGlyphButton *_blurToggle;
 }
 
 - (instancetype)initWithFrame:(CGRect)frame {
@@ -105,6 +107,15 @@ static void restartRest(void);
     _stage = [[UIView alloc] initWithFrame:CGRectZero];
     [self addSubview:_stage];
     [self addSubview:_thumb];
+    _blurToggle = [SGRGlyphButton buttonWithSymbol:@"drop.halffull.fill" pointSize:17 title:@"Turn off lyrics background blur"];
+    _blurToggle.hidden = YES;
+    _blurToggle.backgroundColor = [UIColor colorWithWhite:0 alpha:0.48];
+    _blurToggle.layer.cornerRadius = 22;
+    _blurToggle.clipsToBounds = YES;
+    _blurToggle.onTap = ^{
+        SGRPlayerMotionSetLyricsBlurEnabled(!SGRPlayerMotionLyricsBlurEnabled());
+    };
+    [self addSubview:_blurToggle];
     return self;
 }
 
@@ -147,6 +158,26 @@ static void restartRest(void);
 }
 
 @end
+
+void SGRPlayerLyricsBlurControlRefresh(void) {
+    UIView *host = sg_host;
+    SGRPlayerLyricsOverlay *overlay = host ? objc_getAssociatedObject(host, &kOverlayKey) : nil;
+    SGRGlyphButton *toggle = overlay.blurToggle;
+    if (!toggle) return;
+    BOOL visible = sg_open && SGRPlayerBackground() == SGRPlayerBackgroundAnimated && SGRPlayerMotionShowing()
+        && SGURIString(SGPlayerState().track.URI).length > 0;
+    toggle.hidden = !visible;
+    toggle.enabled = visible;
+    if (!visible) return;
+    BOOL enabled = SGRPlayerMotionLyricsBlurEnabled();
+    NSString *title = enabled ? @"Turn off lyrics background blur" : @"Turn on lyrics background blur";
+    toggle.accessibilityLabel = title;
+    toggle.largeContentTitle = title;
+    toggle.accessibilityValue = enabled ? @"On" : @"Off";
+    [toggle.glyph setSymbol:enabled ? @"drop.halffull.fill" : @"drop.halffull" animated:toggle.window != nil];
+    toggle.glyph.tintColor = enabled ? SGRPrimary() : SGRSecondary();
+    toggle.largeContentImage = toggle.glyph.image;
+}
 
 static SGRPlayerLyricsOverlay *overlayIn(UIView *host) {
     SGRPlayerLyricsOverlay *overlay = objc_getAssociatedObject(host, &kOverlayKey);
@@ -293,8 +324,12 @@ static void place(SGRPlayerLyricsOverlay *overlay, UIView *host, SGRLyricsLayout
     overlay.stage.bounds = (CGRect){CGPointZero, stage.size};
     overlay.stage.center = CGPointMake(CGRectGetMidX(stage), CGRectGetMidY(stage));
     overlay.lyrics.frame = overlay.stage.bounds;
+    CGRect thumb = [overlay convertRect:l.thumb fromView:host];
+    overlay.blurToggle.frame = CGRectMake(CGRectGetMaxX(thumb) - 36, CGRectGetMaxY(thumb) - 36, 44, 44);
+    [overlay bringSubviewToFront:overlay.blurToggle];
     overlay.lyrics.extrasEnabled = SGEnabled(SGRKeyPlayerTranslateButton);
     syncSingControl(overlay);
+    SGRPlayerLyricsBlurControlRefresh();
 }
 
 // Where the thumbnail's view has to go to land on `l.thumb`, as a transform about its own center: the
@@ -816,9 +851,11 @@ static void replace(void) {
 // Lines kept for the track playing, or the look for them over with none. The glyph is told only when they
 // are here, since SGRPlayerLyricsChanged sets the animated artwork's blur each time.
 - (void)linesKept:(NSNotification *)note {
-    if (![note.object isEqual:SGKaraokePlayingTrack()]) return;
-    if (SGRPlayerLyricsAvailable()) SGRPlayerLyricsChanged();
-    else [self closeIfNone];
+    if (SGRPlayerLyricsAvailable()) {
+        SGRPlayerLyricsChanged();
+        return;
+    }
+    if ([note.object isEqual:SGKaraokePlayingTrack()]) [self closeIfNone];
 }
 
 // The lines go once the grace is over and nothing is looking for the track's own any more.
@@ -842,6 +879,12 @@ static void replace(void) {
     _track = track;
     _graceOver = NO;
     SGRPlayerLyricsChanged();
+    // Playback state and the lyrics cache can publish a track on adjacent callbacks.
+    for (NSNumber *wait in @[@0.25, @1]) {
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(wait.doubleValue * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
+            if ([self->_track isEqualToString:track]) SGRPlayerLyricsChanged();
+        });
+    }
     // The lines already up wait out a grace for the new track's before they go, a track after it its own.
     dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(kLyricsGrace * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
         if (![self->_track isEqualToString:track]) return;

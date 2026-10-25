@@ -8,9 +8,10 @@
 #import "Shared/Player/PlayerState.h"
 #import "NowPlayingBar.h"
 #import <objc/message.h>
+#import <objc/runtime.h>
 
 static const CGFloat kCardRadius = 24;
-static char kGlassKey;
+static char kGlassKey, kProgressHeightKey;
 static __weak UIVisualEffectView *sg_cardGlass;
 static __weak UIView *sg_cardArtwork;
 static __weak UIView *sg_cardContent;
@@ -80,7 +81,14 @@ static void restyleCardContent(UIView *card) {
     SGForEachView(card, ^(UIView *v) {
         CGRect f = v.frame;
         if (f.size.height > 3 || f.size.width < 200 || v.superview.bounds.size.height < 40) return;
-        CGRect target = CGRectMake(52, card.bounds.size.height - 6, 226, 2);
+        NSNumber *originalHeight = objc_getAssociatedObject(v, &kProgressHeightKey);
+        if (!originalHeight) {
+            // Keep Spotify's measured height so switching the option off restores the native line.
+            originalHeight = @(f.size.height);
+            objc_setAssociatedObject(v, &kProgressHeightKey, originalHeight, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+        }
+        CGFloat height = SGFlag(SGRKeyNowPlayingThickProgress, NO) ? 2 : originalHeight.doubleValue;
+        CGRect target = CGRectMake(52, card.bounds.size.height - 6, 226, height);
         if (CGRectEqualToRect(f, target)) return;
         v.frame = target;
         [v setNeedsLayout];

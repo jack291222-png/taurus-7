@@ -24,6 +24,7 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
 @property (nonatomic, copy) NSArray<SGSource *> *all;
 @property (nonatomic, copy) NSArray<NSString *> *(^order)(void);
 @property (nonatomic, copy) void (^setOrder)(NSArray<NSString *> *keys);
+@property (nonatomic) NSUInteger minimumOnCount;
 @end
 
 @implementation SGSourcesPage {
@@ -139,6 +140,7 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
     [table deselectRowAtIndexPath:path animated:YES];
     NSString *key = [self keysIn:path.section][(NSUInteger)path.row];
     if (path.section == SGSourcesSectionOn) {
+        if (_on.count <= self.minimumOnCount) return;
         [_on removeObject:key];
         // Back to where it sits among the sources that are off, in the order they all come in.
         NSUInteger at = 0;
@@ -159,11 +161,19 @@ typedef NS_ENUM(NSInteger, SGSourcesSection) {
 
 UIViewController *SGSourcesPageMake(NSString *title, NSString *note, NSArray<SGSource *> *all,
                                     NSArray<NSString *> *(^order)(void), void (^setOrder)(NSArray<NSString *> *keys)) {
+    return SGSourcesPageMakeWithMinimumOnCount(title, note, all, order, setOrder, 0);
+}
+
+UIViewController *SGSourcesPageMakeWithMinimumOnCount(NSString *title, NSString *note, NSArray<SGSource *> *all,
+                                                      NSArray<NSString *> *(^order)(void),
+                                                      void (^setOrder)(NSArray<NSString *> *keys),
+                                                      NSUInteger minimumOnCount) {
     SGSourcesPage *page = [[SGSourcesPage alloc] initWithStyle:UITableViewStyleInsetGrouped];
     page.title = title;
     page.note = note;
     page.all = all;
     page.order = order;
     page.setOrder = setOrder;
+    page.minimumOnCount = MIN(minimumOnCount, all.count);
     return page;
 }

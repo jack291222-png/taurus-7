@@ -6,8 +6,9 @@ Spotify requests or account credentials are used.
 
     THEOS=/path/to/theos sh harness/canvas-selection/build.sh
 
-The first executable checks Canvas-only preferences, every single-view choice, automatic Fill fallback,
-explicit star cycling, disabled views and independent manual/lyrics modes. The second checks late
+The first executable checks the ordered Canvas fallback, its track-local lifetime, Canvas retries on
+the next track, every single-view choice, explicit star cycling, disabled views and Lyrics fallback.
+The second checks late
 request headers, request sharing, timeout recovery, same-track source changes, background defaults
 writes, Canvas metadata arriving after a skip, updated Canvas URLs and stale results after rapid skips.
 Position-only state updates must still avoid notifying observers.
