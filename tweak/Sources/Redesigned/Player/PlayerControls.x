@@ -380,9 +380,47 @@ static void watchSlider(UIView *host) {
     tap.slider = slider;
 }
 
+// Music's scrubber: the volume row's numbers again — a 7pt capsule at rest, 18pt while held, white fill
+// over a dimmed capsule, and the thumb white while held, gone at rest.
+static const CGFloat kSeekTrackRest = 7, kSeekTrackHeld = 18;
+
 %hook _TtCO17NowPlaying_ECMKit11ProgressBar6Slider
 - (BOOL)isTracking {
     return ((UISlider *)self == sg_seekSlider && seekHeld()) || %orig;
+}
+- (CGRect)trackRectForBounds:(CGRect)bounds {
+    CGRect track = %orig;
+    UISlider *slider = (UISlider *)self;
+    CGFloat height = slider.isTracking ? kSeekTrackHeld : kSeekTrackRest, midY = CGRectGetMidY(track);
+    return CGRectMake(track.origin.x, midY - height / 2, track.size.width, height);
+}
+- (void)layoutSubviews {
+    %orig;
+    UISlider *slider = (UISlider *)self;
+    slider.minimumTrackTintColor = UIColor.whiteColor;
+    slider.maximumTrackTintColor = [UIColor colorWithWhite:1 alpha:0.24];
+    slider.thumbTintColor = slider.isTracking ? UIColor.whiteColor : UIColor.clearColor;
+}
+- (BOOL)beginTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
+    BOOL began = %orig;
+    if (began) {
+        UISlider *slider = (UISlider *)self;
+        slider.thumbTintColor = UIColor.whiteColor;
+        [slider setNeedsLayout];
+    }
+    return began;
+}
+- (void)endTrackingWithTouch:(UITouch *)touch withEvent:(UIEvent *)event {
+    %orig;
+    UISlider *slider = (UISlider *)self;
+    slider.thumbTintColor = UIColor.clearColor;
+    [slider setNeedsLayout];
+}
+- (void)cancelTrackingWithEvent:(UIEvent *)event {
+    %orig;
+    UISlider *slider = (UISlider *)self;
+    slider.thumbTintColor = UIColor.clearColor;
+    [slider setNeedsLayout];
 }
 %end
 
