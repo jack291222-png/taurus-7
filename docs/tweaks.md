@@ -348,6 +348,8 @@ voice model's download (Redesigned/Lyrics/SingSettings.m), with Off, On, No mode
 each with its own list of tabs. Player: Gestures and Blocked artists (with the count on the row), which work
 with either look. In the redesigned look Appearance holds the profile-photo toggle and accent colour;
 Home page style and the Top picks first-shelf size are independent switches.
+With Home page off, Top picks enlarges the first shelf without changing the feed's order or hiding its heading.
+Regular shelf headings, including Jump back in and Recently played, stay visible.
 The redesigned Player page also has independent Show Sing button and Show Translate button
 switches, the six background styles (Still, Colors, Fluid, Animated, Visualiser and Fill), an Animated fallback
 choice (Still, Colors, Fluid, Visualiser or Fill, default Fill), background opacity sliders for the artwork

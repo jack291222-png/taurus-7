@@ -109,6 +109,7 @@ static NSArray<NSIndexPath *> *pathsBetween(UICollectionView *list, NSIndexPath 
 }
 
 static NSDictionary<NSIndexPath *, NSValue *> *swappedFrames(UICollectionViewLayout *layout) {
+    if (!SGRHomeGlassStyle()) return nil;
     UICollectionView *list = layout.collectionView;
     if (!list || !sg_shortcutsPath || !sg_topPath || [sg_shortcutsPath compare:sg_topPath] != NSOrderedAscending) return nil;
     if (sg_pageLayout != layout) return nil;

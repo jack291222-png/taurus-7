@@ -176,8 +176,9 @@ static UIImage *avatar(void) {
     }];
 }
 
-static UIView *face(void) {
-    UIView *container = box(nil, _TtC29ListeningActivity_ElementsKit21AdaptiveFaceContainer.class, CGRectMake(0, 0, 48, 48), nil);
+static UIView *face(BOOL adaptive) {
+    Class containerClass = adaptive ? _TtC29ListeningActivity_ElementsKit21AdaptiveFaceContainer.class : UIView.class;
+    UIView *container = box(nil, containerClass, CGRectMake(0, 0, 48, 48), nil);
     UIView *drawer = box(container, MockEncoreButton.class, CGRectMake(0, 0, 48, 48), @"Components.UI.SideDrawerButton");
     UIImageView *image = [[UIImageView alloc] initWithImage:avatar()];
     image.frame = CGRectMake(8, 8, 32, 32);
@@ -245,7 +246,7 @@ static UIView *chips(UIView *filters) {
 }
 @end
 
-@interface SGRHarnessDelegate : UIResponder <UIApplicationDelegate, UICollectionViewDataSource>
+@interface SGRHarnessDelegate : UIResponder <UIApplicationDelegate, UIWindowSceneDelegate, UICollectionViewDataSource>
 @property (nonatomic, strong) UIWindow *window;
 @property (nonatomic, strong) _TtC28YourLibrary_YourLibraryXImpl15YourLibraryView *page;
 @property (nonatomic, strong) NSDictionary<NSString *, UIView *> *controls;
@@ -300,6 +301,15 @@ static UIView *chips(UIView *filters) {
     }
     CGFloat textRight = title ? CGRectGetMinX(title.frame) + MIN(title.bounds.size.width, [title.text sizeWithAttributes:@{NSFontAttributeName: title.font}].width) : 0;
     UIView *filters = [header valueForKey:@"filters"];
+    NSCAssert(title.text.length && title.alpha > 0 && title.bounds.size.width > 0, @"Library title must be visible");
+    for (NSString *name in @[@"recents", @"search", @"plus", @"face"]) {
+        UIView *control = self.controls[name];
+        if (control.hidden) continue;
+        CGRect frame = [control.superview convertRect:control.frame toView:header];
+        NSCAssert(!CGRectIntersectsRect(title.frame, frame), @"Library title must not cover %@", name);
+    }
+    NSCAssert(filters.alpha == 1 && fabs(self.page.list.contentInset.top - kHeaderHeight) < 0.5,
+              @"Library filters and list inset must stay intact");
     HLog(@"%@: %@; title text %.0f-%.0f, header %.0fpt, list inset %.0f, chips %@", moment,
          [parts componentsJoinedByString:@", "], CGRectGetMinX(title.frame), textRight,
          header.bounds.size.height, self.page.list.contentInset.top,
@@ -307,7 +317,14 @@ static UIView *chips(UIView *filters) {
                                   filters.bounds.size.height, filters.frame.origin.y]));
 }
 
-- (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)options {
+- (UISceneConfiguration *)application:(UIApplication *)application
+    configurationForConnectingSceneSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
+    UISceneConfiguration *configuration = [[UISceneConfiguration alloc] initWithName:nil sessionRole:session.role];
+    configuration.delegateClass = self.class;
+    return configuration;
+}
+
+- (void)scene:(UIScene *)scene willConnectToSession:(UISceneSession *)session options:(UISceneConnectionOptions *)options {
     NSArray<NSString *> *args = NSProcessInfo.processInfo.arguments;
     BOOL steady = [args containsObject:@"steady"];
     BOOL back = [args containsObject:@"back"];
@@ -315,7 +332,7 @@ static UIView *chips(UIView *filters) {
     if ([args containsObject:@"nocreate"]) model = @[@"recents", @"search"];
     if ([args containsObject:@"norecents"]) model = @[@"search", @"plus"];
 
-    self.window = [[UIWindow alloc] initWithFrame:UIScreen.mainScreen.bounds];
+    self.window = [[UIWindow alloc] initWithWindowScene:(UIWindowScene *)scene];
     self.window.backgroundColor = UIColor.blackColor;
     UIViewController *root = [UIViewController new];
 
@@ -350,7 +367,7 @@ static UIView *chips(UIView *filters) {
     stack.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     header.filters = chips(box(header, _TtC21YourLibrary_CommonKit35YourLibraryHeaderContentFiltersView.class, CGRectMake(0, 110, header.bounds.size.width, 49.33), nil));
 
-    UIView *avatarBox = face();
+    UIView *avatarBox = face(![args containsObject:@"plain-avatar"]);
     UIView *title = spotifyTitle();
     UIView *spacer = [UIView new];
     [spacer.heightAnchor constraintEqualToConstant:0].active = YES;
@@ -391,7 +408,6 @@ static UIView *chips(UIView *filters) {
             [self report:@"back from a playlist"];
         });
     }
-    return YES;
 }
 
 @end

@@ -65,16 +65,6 @@ static UILabel *titleLabelIn(UIView *button, UILabel *mine) {
     return title;
 }
 
-// Headings the Home page does without: the "Jump back in" shelf's, in the languages Spotify writes it in.
-static BOOL unwanted(NSString *title) {
-    NSString *lower = title.lowercaseString;
-    for (NSString *marker in @[@"jump back in", @"recently played", @"recents", @"sumérgete", @"sumergete", @"vuelve a sumergirte",
-                               @"escuchado recientemente", @"recientes", @"reprendre", @"weiter hören", @"riprendi"]) {
-        if ([lower containsString:marker]) return YES;
-    }
-    return NO;
-}
-
 static void restyle(UIView *button) {
     UIView *heading = headingAround(button);
     if (!heading) return;
@@ -86,14 +76,6 @@ static void restyle(UIView *button) {
         mine.hidden = YES;
         if (held.constraints) [NSLayoutConstraint deactivateConstraints:held.constraints];
         objc_setAssociatedObject(button, &kHeldKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        return;
-    }
-    if (unwanted(theirs.text)) {
-        // Taken out of sight: the heading and the title drawn over it.
-        mine.hidden = YES;
-        if (theirs.alpha != 0) theirs.alpha = 0;
-        if (heading.alpha != 0) heading.alpha = 0;
-        heading.accessibilityElementsHidden = YES;
         return;
     }
     if (heading.alpha != 1) {   // a heading view reused for another shelf
