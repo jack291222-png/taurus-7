@@ -325,7 +325,8 @@ BOOL SGRPlayerPlaceVolume(UIView *stack, UIView *controls, UIView *row, CGFloat 
         volume.autoresizingMask = UIViewAutoresizingFlexibleTopMargin;
         objc_setAssociatedObject(stack, &kVolumeKey, volume, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
     }
-    volume.matchTimeSlider = SGEnabled(SGRKeyPlayerVolumeMatchSlider);
+    // The Match time slider switch is off until asked for; an unset switch must not turn it on and hide the glyphs.
+    volume.matchTimeSlider = SGFlag(SGRKeyPlayerVolumeMatchSlider, NO);
     if (volume.superview != stack) [stack addSubview:volume];
     // Halfway between the play button's bottom and the footer glyphs' top, each where it is drawn (convertRect: takes
     // the moves' transforms in): the controls' unit reaches above its buttons, so its own middle sat the row 16pt high.
