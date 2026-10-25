@@ -29,7 +29,7 @@ NSString *SGLockScreenStarCurrentView(void);
 // With star switching on, an active view disabled by the user moves to the first enabled view.
 void SGLockScreenStarEnsureView(void);
 void SGLockScreenStarAdvanceView(void);
-// An enabled still/generated fallback for this track only; the saved motion choice stays selected.
+// Fill for missing moving artwork, without changing the saved choice or the star-view list.
 NSString *SGLockScreenMotionFallbackView(void);
 CGFloat SGLockScreenCoverArtworkScale(void);
 BOOL SGLockScreenCanvasLyricsEnabled(void);

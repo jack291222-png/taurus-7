@@ -40,6 +40,9 @@ static BOOL motionOn(SGLockArtwork choice) {
     return choice == SGLockArtworkMotion;
 }
 
+API_AVAILABLE(ios(26.0))
+static void showFill(NSString *picture);
+
 // The key a clip shown at `shown` goes under, and the shape it is cut to (width over height): 1:1 for a
 // square clip, else 3:4, each where the system lists it, else the other. nil while it lists neither, before
 // MediaPlayer has started: the next track asks again.
@@ -75,7 +78,11 @@ static void show(NSURL *file) {
     NSUInteger walk = sg_walk;
     NSString *title = sg_title;
     SGMotionPoster(file, ^(UIImage *poster) {
-        if (!poster || poster.size.height <= 0 || walk != sg_walk) return;
+        if (walk != sg_walk) return;
+        if (!poster || poster.size.width <= 0 || poster.size.height <= 0) {
+            if ([SGLockScreenMotionFallbackView() isEqualToString:@"fill"]) showFill(sg_picture);
+            return;
+        }
         CGFloat ratio;
         NSString *key = keyFor(poster.size, &ratio);
         if (!key) {
@@ -97,6 +104,10 @@ static void show(NSURL *file) {
                     SGLog(@"lock motion: %@ cut to %@ %@ in %.0f ms", file.lastPathComponent, ratio == 1 ? @"1:1" : @"3:4",
                           ok ? @"ready" : @"not written", (CFAbsoluteTimeGetCurrent() - start) * 1000);
                     completion(ok ? shaped : nil);
+                    if (!ok) dispatch_async(dispatch_get_main_queue(), ^{
+                        if (walk == sg_walk && [SGLockScreenMotionFallbackView() isEqualToString:@"fill"])
+                            showFill(sg_picture);
+                    });
                 });
             }];
         SGNowPlayingSetExtras(@"motion", @{key: artwork}, title);
@@ -245,7 +256,6 @@ void SGLockMotionShowPlain(BOOL plain) {
             } else if (motionOn(sg_choice)) {
                 NSString *fallback = SGLockScreenMotionFallbackView();
                 if ([fallback isEqualToString:@"fill"]) showFill(sg_picture);
-                else if ([fallback isEqualToString:@"colorful"]) showCover(sg_picture);
                 SGLog(@"lock motion: no clip for %@, %@ for this track; Canvas stays selected", uri, fallback ?: @"album artwork");
             }
         }];

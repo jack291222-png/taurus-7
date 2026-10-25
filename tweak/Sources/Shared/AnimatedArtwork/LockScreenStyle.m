@@ -92,14 +92,8 @@ void SGLockScreenStarAdvanceView(void) {
 }
 
 NSString *SGLockScreenMotionFallbackView(void) {
-    if (!SGHidden(SGKeyLockScreenStar)) return nil;
-    NSArray<NSString *> *order = SGLockScreenStarViewOrder();
-    NSUInteger current = [order indexOfObject:SGLockScreenStarCurrentView() ?: @""];
-    for (NSUInteger i = 1; i <= order.count; i++) {
-        NSString *key = order[current == NSNotFound ? i - 1 : (current + i) % order.count];
-        if ([key isEqual:kStarFill] || [key isEqual:kStarColorful] || [key isEqual:kStarDefault]) return key;
-    }
-    return nil;
+    return SGLockScreenArtwork() == SGLockArtworkMotion && !SGLockScreenCanvasLyricsEnabled()
+        ? kStarFill : nil;
 }
 
 BOOL SGLockScreenCanvasLyricsEnabled(void) {
