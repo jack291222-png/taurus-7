@@ -25,7 +25,12 @@ typedef NS_ENUM(NSInteger, SGLockArtwork) {
 // Off below iOS 26, which has no animated artwork on the lock screen.
 SGLockArtwork SGLockScreenArtwork(void);
 NSArray<NSString *> *SGLockScreenStarViewOrder(void);
+NSString *SGLockScreenStarCurrentView(void);
+// With star switching on, an active view disabled by the user moves to the first enabled view.
+void SGLockScreenStarEnsureView(void);
 void SGLockScreenStarAdvanceView(void);
+// An enabled still/generated fallback for this track only; the saved motion choice stays selected.
+NSString *SGLockScreenMotionFallbackView(void);
 CGFloat SGLockScreenCoverArtworkScale(void);
 BOOL SGLockScreenCanvasLyricsEnabled(void);
 void SGLockScreenCanvasLyricsSetEnabled(BOOL enabled);
@@ -79,7 +84,8 @@ void SGMotionClipFor(NSString *uri, NSURL *canvas, NSString *artist, NSString *a
 // state, as it does on a skip, where Spotify reports the track before its extended metadata, unless the clip
 // showing came from a source above Canvas. `begin` runs as a walk starts, to take the last clip off, and
 // says whether to walk at all; `found` gets the walk's clip, nil for none, and never runs for a walk a newer
-// one overtook. Once a walk has ended, the next track's clip is fetched ahead. Main queue.
+// one overtook. Changing the source order re-walks the current track. Once a walk has ended, the next
+// track's clip is fetched ahead. Main queue.
 @class SPTPlayerState;
 @interface SGMotionFollower : NSObject
 - (instancetype)initWithBegin:(BOOL (^)(NSString *uri, SPTPlayerState *state))begin

@@ -370,8 +370,9 @@ include independent portrait and landscape auto-hide switches for the lyrics scr
 Animated lock screen, the track's Canvas or the album's Apple Music cover played behind the lock screen's controls,
 with optional Canvas lyrics toggled from the redesigned player's ⋯ menu or the lock-screen star, a Sources page for
 their order, Fill artwork, and configurable lock-screen star cycling across Canvas, Canvas with lyrics, Fill,
-Colourful (Every Song's moving-cover fallback) and Default (iOS's full album artwork); a missing animation
-advances to the next ordered view. A "Needs iOS 26" row appears below that;
+Colourful (Every Song's moving-cover fallback) and Default (iOS's full album artwork). A missing animation
+can use the next enabled non-Canvas view for that track while keeping Canvas selected for later tracks.
+Disabled views stay disabled, and source-order changes apply to the current track. A "Needs iOS 26" row appears below that;
 Canvas lyrics and artist-name replacement remain independent.
 Audio effects follows Lock Screen, which appears between Lyrics and Audio effects on the root page.
 In the native look also Now playing bar (its device button and its flags), Queue & devices, and
