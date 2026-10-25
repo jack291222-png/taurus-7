@@ -5,7 +5,10 @@
 #import <stdint.h>
 #import "SGFillClip.h"
 
-static const CGFloat kBackdropBlurRadius = 22.0, kEdgeFade = 0.035;
+// The sharp cover dissolves into the blurred field across this share of its height at each end; the
+// backdrop is the same cover blurred and aligned, so a wide fade reads as progressively stronger blur
+// rather than a hard seam where the crisp square stops.
+static const CGFloat kBackdropBlurRadius = 22.0, kEdgeFade = 0.2;
 static const int32_t kLoopSeconds = 4, kFramesPerSecond = 24;
 
 static CGColorSpaceRef fillColorSpace(void) {
