@@ -101,32 +101,30 @@ NSString *SGLockScreenStarViewName(NSString *view) {
 }
 
 void SGLockScreenStarSelectView(NSString *view) {
+    SGLockArtwork artwork;
     if ([view isEqualToString:kStarDefault]) {
-        SGSetInt(SGKeyFullScreenArtwork, SGLockArtworkOff);
-        SGLockScreenCanvasLyricsSetEnabled(NO);
+        artwork = SGLockArtworkOff;
     } else if ([view isEqualToString:kStarColorful]) {
-        SGSetInt(SGKeyFullScreenArtwork, SGLockArtworkEverySong);
-        SGLockScreenCanvasLyricsSetEnabled(NO);
+        artwork = SGLockArtworkEverySong;
     } else if ([view isEqualToString:kStarFill]) {
-        SGSetInt(SGKeyFullScreenArtwork, SGLockArtworkFill);
-        SGLockScreenCanvasLyricsSetEnabled(NO);
+        artwork = SGLockArtworkFill;
     } else if ([view isEqualToString:kStarLyrics]) {
-        SGSetInt(SGKeyFullScreenArtwork, SGLockArtworkLyrics);
-        SGLockScreenCanvasLyricsSetEnabled(NO);
+        artwork = SGLockArtworkLyrics;
     } else if ([view isEqualToString:kStarCanvas]) {
-        SGSetInt(SGKeyFullScreenArtwork, SGLockArtworkMotion);
-        SGLockScreenCanvasLyricsSetEnabled(NO);
-    }
+        artwork = SGLockArtworkMotion;
+    } else return;
+    if (SGLockScreenArtwork() != artwork) SGSetInt(SGKeyFullScreenArtwork, artwork);
+    SGLockScreenCanvasLyricsSetEnabled(NO);
     SGLockScreenSetEffectiveArtwork(SGLockScreenArtwork());
-    SGLockScreenLyricsExclusivityChanged(SGEnabled(SGKeyLockScreenExclusiveLyrics));
 }
 
 void SGLockScreenStarEnsureView(void) {
     NSArray<NSString *> *order = SGLockScreenStarViewOrder();
     if (!order.count) return;
     NSString *current = SGLockScreenCurrentStarView();
-    if (!SGHidden(SGKeyLockScreenStar) || !current || ![order containsObject:current])
-        SGLockScreenStarSelectView(order.firstObject);
+    NSString *selected = SGHidden(SGKeyLockScreenStar) && current && [order containsObject:current]
+        ? current : order.firstObject;
+    if (![selected isEqualToString:current]) SGLockScreenStarSelectView(selected);
 }
 
 void SGLockScreenStarAdvanceView(void) {
@@ -172,14 +170,8 @@ CGFloat SGLockScreenCoverArtworkScale(void) {
 }
 
 void SGLockScreenCanvasLyricsSetEnabled(BOOL enabled) {
-    SGSetEnabled(SGKeyLockScreenCanvasLyrics, enabled);
-    if (enabled && SGEnabled(SGKeyLockScreenExclusiveLyrics) && SGFlag(SGKeyLockScreenLyrics, NO)) {
-        SGSetEnabled(kArtistLyricsWasEnabled, YES);
-        SGSetEnabled(SGKeyLockScreenLyrics, NO);
-    } else if (!enabled && SGFlag(kArtistLyricsWasEnabled, NO)) {
-        SGSetEnabled(SGKeyLockScreenLyrics, YES);
-        SGSetEnabled(kArtistLyricsWasEnabled, NO);
-    }
+    if (SGHidden(SGKeyLockScreenCanvasLyrics) != enabled) SGSetEnabled(SGKeyLockScreenCanvasLyrics, enabled);
+    SGLockScreenLyricsExclusivityChanged(SGEnabled(SGKeyLockScreenExclusiveLyrics));
 }
 
 void SGLockScreenLyricsExclusivityChanged(BOOL enabled) {

@@ -7,8 +7,8 @@ THEOS=${THEOS:-$HOME/theos}
 "$THEOS/bin/logos.pl" -c generator=internal "${PLAYER_STATE_SOURCE:-$SRC/Shared/Player/PlayerState.x}" > "$HERE/build/PlayerState.m"
 SDK=$(xcrun --sdk iphonesimulator --show-sdk-path)
 xcrun clang -target arm64-apple-ios26.0-simulator -fobjc-arc -isysroot "$SDK" \
-    -I"$SRC" -framework Foundation -framework UIKit \
-    "$HERE/main.m" "$SRC/Shared/AnimatedArtwork/LockScreenStyle.m" "$SRC/Core/SGPrefs.m" \
+    -I"$SRC" -I"$SRC/Shared/AnimatedArtwork" -framework Foundation -framework UIKit \
+    "$HERE/main.m" "${LOCK_SCREEN_STYLE_SOURCE:-$SRC/Shared/AnimatedArtwork/LockScreenStyle.m}" "$SRC/Core/SGPrefs.m" \
     -o "$HERE/build/canvas-selection"
 xcrun simctl spawn booted "$HERE/build/canvas-selection"
 
