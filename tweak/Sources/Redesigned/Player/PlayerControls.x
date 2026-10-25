@@ -378,10 +378,16 @@ static void watchSlider(UIView *host) {
         SGLog(@"redesign player: a tap around the progress bar seeks");
     }
     tap.slider = slider;
+    // Music's look, asked from a pass outside the slider's own layout.
+    slider.minimumTrackTintColor = UIColor.whiteColor;
+    slider.maximumTrackTintColor = [UIColor colorWithWhite:1 alpha:0.24];
+    slider.thumbTintColor = UIColor.clearColor;
 }
 
 // Music's scrubber: the volume row's numbers again — a 7pt capsule at rest, 18pt while held, white fill
-// over a dimmed capsule, and the thumb white while held, gone at rest.
+// over a dimmed capsule, and the thumb white while held, gone at rest. The tints are set from the watch
+// pass, the window attach and the tracking calls only: setting a slider tint inside its own layout lays
+// it out again and again, and the app hangs.
 static const CGFloat kSeekTrackRest = 7, kSeekTrackHeld = 18;
 
 %hook _TtCO17NowPlaying_ECMKit11ProgressBar6Slider
@@ -394,7 +400,7 @@ static const CGFloat kSeekTrackRest = 7, kSeekTrackHeld = 18;
     CGFloat height = slider.isTracking ? kSeekTrackHeld : kSeekTrackRest, midY = CGRectGetMidY(track);
     return CGRectMake(track.origin.x, midY - height / 2, track.size.width, height);
 }
-- (void)layoutSubviews {
+- (void)didMoveToWindow {
     %orig;
     UISlider *slider = (UISlider *)self;
     slider.minimumTrackTintColor = UIColor.whiteColor;
@@ -405,6 +411,8 @@ static const CGFloat kSeekTrackRest = 7, kSeekTrackHeld = 18;
     BOOL began = %orig;
     if (began) {
         UISlider *slider = (UISlider *)self;
+        slider.minimumTrackTintColor = UIColor.whiteColor;
+        slider.maximumTrackTintColor = [UIColor colorWithWhite:1 alpha:0.24];
         slider.thumbTintColor = UIColor.whiteColor;
         [slider setNeedsLayout];
     }
