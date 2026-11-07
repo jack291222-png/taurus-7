@@ -483,128 +483,12 @@ static SGModSettingsRow *ensureDrawerRow(UICollectionView *list) {
     return row;
 }
 
-static UIViewController *settingsListIn(UIViewController *page, Class kind) {
-    if ([page isKindOfClass:kind]) return page;
-    for (UIViewController *child in page.childViewControllers) {
-        UIViewController *found = settingsListIn(child, kind);
-        if (found) return found;
-    }
-    return nil;
-}
-
-static BOOL isSettingsRoot(UIViewController *list) {
-    for (UIViewController *page in list.navigationController.viewControllers) {
-        UIViewController *found = settingsListIn(page, list.class);
-        if (found) return found == list;
-    }
-    return YES;
-}
-
-%hook _TtC21Settings_PlatformImpl26SettingsListViewController
-- (void)viewDidLayoutSubviews {
-    %orig;
-    BOOL root = isSettingsRoot((UIViewController *)self);
-    for (UIView *sub in ((UIViewController *)self).view.subviews) {
-        if (![sub isKindOfClass:UICollectionView.class]) continue;
-        SGModSettingsRow *row = objc_getAssociatedObject(sub, &kRowKey);
-        if (!root) {
-            [row removeFromSuperview];
-            objc_setAssociatedObject(sub, &kRowKey, nil, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-            continue;
-        }
-        if (row) continue;
-        row = [[SGModSettingsRow alloc] initWithFrame:CGRectZero];
-        objc_setAssociatedObject(sub, &kRowKey, row, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-        [sub addSubview:row];
-    }
-}
-%end
-
-static UIColor *planBadgeColor(void) {
-    if (!SGRedesignedUI()) return SGGreen();
-    NSInteger rgb = SGInt(@"spotifyglass.redesign.accent", 0x37F200);
-    if (rgb < 0 || rgb > 0xFFFFFF) return SGGreen();
-    return [UIColor colorWithRed:((rgb >> 16) & 0xFF) / 255.0
-                           green:((rgb >> 8) & 0xFF) / 255.0
-                            blue:(rgb & 0xFF) / 255.0 alpha:1];
-}
-
-static __weak UIView *sg_drawerRoot;
-static char kPlanBadgeLabelKey;
-
-static NSString *sidebarBadgeText(void) {
-    NSString *text = [NSUserDefaults.standardUserDefaults stringForKey:SGKeySidebarBadgeText];
-    return text.length ? text : @"Taurus";
-}
-
-static BOOL isSidebarBadgeText(NSString *text) {
-    return [text isEqualToString:@"Spotify Free"] || [text isEqualToString:@"Taurine"]
-        || [text isEqualToString:@"Taurus"] || [text isEqualToString:sidebarBadgeText()];
-}
-
-static BOOL isDrawerBadgeLabel(UILabel *label) {
-    for (UIView *view = label; view; view = view.superview) {
-        if (view == sg_drawerRoot ||
-            [NSStringFromClass(view.class) containsString:@"SideDrawerListCollectionView"]) return YES;
-    }
-    return NO;
-}
-
-static BOOL isPlanBadgeLabel(UILabel *label) {
-    return objc_getAssociatedObject(label, &kPlanBadgeLabelKey) != nil || isSidebarBadgeText(label.text);
-}
-
-static void stylePlanBadgeLabel(UILabel *label) {
-    UIColor *color = planBadgeColor();
-    CGFloat red = 0, green = 0, blue = 0, alpha = 0;
-    [color getRed:&red green:&green blue:&blue alpha:&alpha];
-    NSString *text = sidebarBadgeText();
-    if (![label.text isEqualToString:text]) label.text = text;
-    label.textColor = (0.2126 * red + 0.7152 * green + 0.0722 * blue) > 0.55 ? UIColor.blackColor : UIColor.whiteColor;
-    label.backgroundColor = color;
-    label.layer.backgroundColor = color.CGColor;
-    label.layer.cornerRadius = MIN(8, CGRectGetHeight(label.bounds) / 2);
-    label.clipsToBounds = YES;
-    objc_setAssociatedObject(label, &kPlanBadgeLabelKey, @YES, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-
-    CGRect labelBounds = label.bounds;
-    for (UIView *badge = label.superview; badge && badge != sg_drawerRoot; badge = badge.superview) {
-        CGRect labelFrame = [label convertRect:labelBounds toView:badge];
-        if (badge.bounds.size.width > CGRectGetWidth(labelFrame) + 80 ||
-            badge.bounds.size.height > CGRectGetHeight(labelFrame) + 32) break;
-        badge.backgroundColor = color;
-        badge.layer.backgroundColor = color.CGColor;
-        badge.layer.cornerRadius = MIN(8, CGRectGetHeight(badge.bounds) / 2);
-        badge.layer.masksToBounds = YES;
-    }
-}
-
-static void updatePlanBadge(UIView *root) {
-    SGForEachView(root, ^(UIView *view) {
-        if (![view isKindOfClass:UILabel.class]) return;
-        UILabel *label = (UILabel *)view;
-        if (!isPlanBadgeLabel(label)) return;
-        stylePlanBadgeLabel(label);
-    });
-}
-
-%hook UILabel
-- (void)setText:(NSString *)text {
-    %orig;
-    if (![text isEqualToString:@"Spotify Free"] && ![text isEqualToString:@"Taurine"] &&
-        ![text isEqualToString:@"Taurus"]) return;
-    if (!isDrawerBadgeLabel(self)) return;
-    stylePlanBadgeLabel(self);
-}
-%end
-
-// Keep the drawer's plan badge and the Taurus settings row current as Spotify rebuilds its view.
+// Keep the drawer settings row current as Spotify rebuilds its view.
 %hook _TtC23SideDrawer_ListPageImpl18ListViewController
 - (void)viewDidLayoutSubviews {
     %orig;
-    sg_drawerRoot = ((UIViewController *)self).view;
-    updatePlanBadge(sg_drawerRoot);
-    SGForEachView(sg_drawerRoot, ^(UIView *view) {
+    UIView *root = ((UIViewController *)self).view;
+    SGForEachView(root, ^(UIView *view) {
         if (![view isKindOfClass:UICollectionView.class] ||
             ![NSStringFromClass(view.class) containsString:@"SideDrawerListCollectionView"]) return;
         ensureDrawerRow((UICollectionView *)view);
@@ -618,7 +502,6 @@ static void updatePlanBadge(UIView *root) {
     %orig;
     SGModSettingsRow *row = objc_getAssociatedObject(self, &kRowKey);
     BOOL drawerList = [NSStringFromClass(self.class) containsString:@"SideDrawerListCollectionView"];
-    if (drawerList) updatePlanBadge(self);
     if (!row && drawerList)
         row = ensureDrawerRow(self);
     if (row && row.superview != self) [self addSubview:row];
@@ -628,11 +511,7 @@ static void updatePlanBadge(UIView *root) {
 
 %ctor {
     %init;
-    [NSNotificationCenter.defaultCenter addObserverForName:SGSidebarBadgeTextDidChangeNotification object:nil queue:NSOperationQueue.mainQueue
-                                                usingBlock:^(NSNotification *note) {
-        if (sg_drawerRoot) updatePlanBadge(sg_drawerRoot);
-    }];
-    SGRequireClasses(@[@"_TtC21Settings_PlatformImpl26SettingsListViewController", @"_TtC23SideDrawer_ListPageImpl18ListViewController"]);
+    SGRequireClasses(@[@"_TtC23SideDrawer_ListPageImpl18ListViewController"]);
     SGRegisterPages();
     SGCheckSigningOnce();
 }
