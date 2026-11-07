@@ -28,9 +28,6 @@
 #import "App/About/About.h"
 #import "Pages.h"
 
-static const CGFloat kRowHeight = 56;
-static char kRowKey, kInsetKey;
-
 // The Misc page's switch that hides the Discord banner row in modSettingsPage below.
 #define SGKeyHideDiscordBanner @"spotifyglass.hide.discordBanner"
 
@@ -381,44 +378,7 @@ static UIViewController *modSettingsPage(void) {
     return [[SGTaurusSettingsPage alloc] initWithSections:sections];
 }
 
-#pragma mark - row in the settings list
-
-@interface SGModSettingsRow : UIControl
-@property (nonatomic) BOOL drawer;
-@end
-
-@implementation SGModSettingsRow {
-    UIImageView *_icon;
-    UILabel *_title;
-    UIImageView *_chevron;
-}
-
-- (instancetype)initWithFrame:(CGRect)frame {
-    if (!(self = [super initWithFrame:frame])) return nil;
-    _icon = SGSymbolView(@"slider.horizontal.3", 20, UIImageSymbolWeightRegular, 24);
-    _title = [UILabel new];
-    _title.text = @"taurus settings";
-    _title.textColor = UIColor.whiteColor;
-    _chevron = SGSymbolView(@"chevron.right", 11, UIImageSymbolWeightSemibold, 12);
-    for (UIView *v in @[_icon, _title, _chevron]) [self addSubview:v];
-    [self addTarget:self action:@selector(open) forControlEvents:UIControlEventTouchUpInside];
-    return self;
-}
-
-- (void)layoutSubviews {
-    [super layoutSubviews];
-    _title.font = SGTitleFont();
-    CGFloat width = self.bounds.size.width, height = self.bounds.size.height, lead = self.drawer ? 4 : 0;
-    _icon.frame = CGRectMake(12 + lead, (height - 24) / 2, 24, 24);
-    _title.frame = CGRectMake(48 + lead, 0, width - 96, height);
-    _chevron.frame = CGRectMake(width - 24, (height - 12) / 2, 12, 12);
-    _chevron.hidden = self.drawer;
-}
-
-- (void)setHighlighted:(BOOL)highlighted {
-    [super setHighlighted:highlighted];
-    self.alpha = highlighted ? 0.5 : 1;
-}
+#pragma mark - opening Mod Settings
 
 static UINavigationController *navigationIn(UIViewController *page) {
     if ([page isKindOfClass:UINavigationController.class]) return (UINavigationController *)page;
@@ -428,23 +388,6 @@ static UINavigationController *navigationIn(UIViewController *page) {
     }
     return nil;
 }
-
-- (void)open {
-    UIViewController *owner = nil;
-    for (UIResponder *r = self; r && !owner; r = r.nextResponder) {
-        if ([r isKindOfClass:UIViewController.class]) owner = (UIViewController *)r;
-    }
-    UIViewController *presenting = self.drawer ? owner.presentingViewController : nil;
-    if (presenting) {
-        [presenting dismissViewControllerAnimated:YES completion:^{
-            SGShowPage(navigationIn(presenting).topViewController ?: presenting, modSettingsPage());
-        }];
-        return;
-    }
-    SGShowPage(owner, modSettingsPage());
-}
-
-@end
 
 // The tab bar's controller holds no stack itself; the selected tab's sits among its parent's children.
 void SGOpenModSettings(UIView *source) {
@@ -457,61 +400,7 @@ void SGOpenModSettings(UIView *source) {
     SGShowPage(nav.topViewController ?: SGTopController(), modSettingsPage());
 }
 
-static void placeRow(UICollectionView *list, SGModSettingsRow *row) {
-    SGAdoptFonts(list, row);
-    CGFloat bottom = list.contentSize.height;
-    row.hidden = !row.drawer && bottom <= 0;
-    row.frame = CGRectMake(0, row.drawer ? -kRowHeight : bottom, list.bounds.size.width, kRowHeight);
-
-    UIEdgeInsets inset = list.contentInset;
-    NSValue *applied = objc_getAssociatedObject(list, &kInsetKey);
-    if (applied && UIEdgeInsetsEqualToEdgeInsets(inset, applied.UIEdgeInsetsValue)) return;
-    if (row.drawer) inset.top += kRowHeight;
-    else inset.bottom += kRowHeight;
-    objc_setAssociatedObject(list, &kInsetKey, [NSValue valueWithUIEdgeInsets:inset], OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    list.contentInset = inset;
-}
-
-static SGModSettingsRow *ensureDrawerRow(UICollectionView *list) {
-    SGModSettingsRow *row = objc_getAssociatedObject(list, &kRowKey);
-    if (!row) {
-        row = [[SGModSettingsRow alloc] initWithFrame:CGRectZero];
-        row.drawer = YES;
-        objc_setAssociatedObject(list, &kRowKey, row, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
-    }
-    if (row.superview != list) [list addSubview:row];
-    return row;
-}
-
-// Keep the drawer settings row current as Spotify rebuilds its view.
-%hook _TtC23SideDrawer_ListPageImpl18ListViewController
-- (void)viewDidLayoutSubviews {
-    %orig;
-    UIView *root = ((UIViewController *)self).view;
-    SGForEachView(root, ^(UIView *view) {
-        if (![view isKindOfClass:UICollectionView.class] ||
-            ![NSStringFromClass(view.class) containsString:@"SideDrawerListCollectionView"]) return;
-        ensureDrawerRow((UICollectionView *)view);
-    });
-}
-%end
-
-// The lists lay out after their controllers and again whenever their content changes.
-%hook UICollectionView
-- (void)layoutSubviews {
-    %orig;
-    SGModSettingsRow *row = objc_getAssociatedObject(self, &kRowKey);
-    BOOL drawerList = [NSStringFromClass(self.class) containsString:@"SideDrawerListCollectionView"];
-    if (!row && drawerList)
-        row = ensureDrawerRow(self);
-    if (row && row.superview != self) [self addSubview:row];
-    if (row) placeRow(self, row);
-}
-%end
-
 %ctor {
-    %init;
-    SGRequireClasses(@[@"_TtC23SideDrawer_ListPageImpl18ListViewController"]);
     SGRegisterPages();
     SGCheckSigningOnce();
 }

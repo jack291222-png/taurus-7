@@ -344,8 +344,7 @@ logs are not shared unless the user explicitly chooses Copy or Share.
 
 ## Mod Settings
 
-Mod Settings, opened by holding Home on the tab bar or from the
-last row of Spotify's Settings, sorts every
+Mod Settings, opened by holding Home on the tab bar, sorts every
 setting by the part of Spotify it changes, so a part's glass, its hide switches and its flags sit on
 one page, the mod's own rows first and Spotify's flags below them or on a sub page named after what
 they change. It opens on the Appearance card: Redesigned UI, then the stored look's accent colour, and in the native
