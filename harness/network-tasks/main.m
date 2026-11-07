@@ -9,6 +9,8 @@ void SGAdBlockSawOne(NSString *label) {}
 void SGAdBlockCountOne(NSString *label) {}
 NSData *SGPatchBootstrap(NSData *body) { return [@"bootstrap" dataUsingEncoding:NSUTF8StringEncoding]; }
 NSData *SGPatchCustomize(NSData *body) { return [@"premium" dataUsingEncoding:NSUTF8StringEncoding]; }
+BOOL SGIsPlanResponseURL(NSURL *url) { return NO; }
+NSData *SGPatchPlanResponse(NSURL *url, NSData *body) { return nil; }
 NSData *SGStripFeed(NSData *body) { return [@"feed" dataUsingEncoding:NSUTF8StringEncoding]; }
 
 @interface SGRequestTask : NSURLSessionTask

@@ -1,0 +1,12 @@
+name: Plan response tests
+on:
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - run: sh scripts/test-plan-responses.sh

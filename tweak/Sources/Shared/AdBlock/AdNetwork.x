@@ -10,6 +10,7 @@
 #import "Core/SGCore.h"
 #import "Core/SGURLSession.h"
 #import "AdBlock.h"
+#import "PlanResponses.h"
 #import "Shared/Jam/Jam.h"
 
 static BOOL ads, premium;
@@ -90,6 +91,7 @@ static BOOL isRefetch(NSString *path) {
 
 static SGNet classify(NSURL *url) {
     NSString *path = url.path.lowercaseString ?: @"";
+    if (SGIsPlanResponseURL(url)) return SGNetPatch;
     if (premium && isLogout(path)) return SGNetBlock;
     if (ads && isAd(url, path)) return SGNetBlock;
     if (premium && elapsed() > 30 && isRefetch(path)) return SGNetBlock;
@@ -119,6 +121,7 @@ static NSData *blockedReply(NSString *path) {
 
 static NSData *patched(NSURL *url, NSData *body) {
     NSString *path = url.path.lowercaseString ?: @"";
+    if (SGIsPlanResponseURL(url)) return SGPatchPlanResponse(url, body);
     if (isFeed(path)) return SGStripFeed(body);
     SGAdBlockSawOne(@"Config rewrites");
     NSData *result = isBootstrap(path) ? SGPatchBootstrap(body) : SGPatchCustomize(body);
@@ -180,6 +183,15 @@ static void complete(id<NSURLSessionDataDelegate> delegate, NSURLSession *sessio
     if (objc_getAssociatedObject(task, &kServedKey)) {
         finish(nil);
         return;
+    }
+    // Never reinterpret an HTTP error body as a plan display message.
+    if (SGIsPlanResponseURL(url) && [task.response isKindOfClass:NSHTTPURLResponse.class]) {
+        NSInteger status = ((NSHTTPURLResponse *)task.response).statusCode;
+        if (status < 200 || status >= 300) {
+            if (buffer.length) deliver(delegate, session, task, buffer);
+            finish(error);
+            return;
+        }
     }
     SGAdBlockSawOne(@"Requests");
     switch (classify(url)) {
@@ -300,7 +312,7 @@ static void complete(id<NSURLSessionDataDelegate> delegate, NSURLSession *sessio
 // go out without the question, and the server always answers in full.
 static NSURLRequest *unconditional(NSURLRequest *request) {
     NSString *host = request.URL.host.lowercaseString ?: @"", *path = request.URL.path.lowercaseString ?: @"";
-    if (!(has(host, @"spotify") || has(host, @"spclient")) || !(isBootstrap(path) || isCustomize(path))) return nil;
+    if (!(has(host, @"spotify") || has(host, @"spclient")) || !((premium && (isBootstrap(path) || isCustomize(path))) || SGIsPlanResponseURL(request.URL))) return nil;
     if (![request valueForHTTPHeaderField:@"If-None-Match"] && ![request valueForHTTPHeaderField:@"If-Modified-Since"]) return nil;
     NSMutableURLRequest *plain = [request mutableCopy];
     [plain setValue:nil forHTTPHeaderField:@"If-None-Match"];
